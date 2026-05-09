@@ -33,86 +33,179 @@
     ]
   },
   "navigation": {
-    "tabs": [
+    "languages": [
       {
-        "tab": "Start Here",
-        "pages": [
+        "language": "en",
+        "tabs": [
           {
-            "group": "Getting Started",
+            "tab": "Start Here",
             "pages": [
-              "start-here/what-is-ath",
-              "start-here/jwt-and-oauth-basics",
-              "start-here/run-the-demo",
-              "start-here/what-just-happened"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Add ATH to Your App",
-        "pages": [
-          {
-            "group": "Server-Side Tutorial",
-            "pages": [
-              "add-ath-to-your-app/tutorial",
-              "add-ath-to-your-app/existing-express-app",
-              "add-ath-to-your-app/existing-oauth"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Set Up a Gateway",
-        "pages": [
-          {
-            "group": "Gateway Tutorial",
-            "pages": [
-              "setup-gateway/tutorial",
-              "setup-gateway/add-providers",
-              "setup-gateway/production"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Build an Agent",
-        "pages": [
-          {
-            "group": "Agent Tutorial",
-            "pages": [
-              "build-an-agent/tutorial",
-              "build-an-agent/typescript-sdk",
-              "build-an-agent/python-sdk",
-              "build-an-agent/athx-cli"
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "start-here/what-is-ath",
+                  "start-here/jwt-and-oauth-basics",
+                  "start-here/run-the-demo",
+                  "start-here/what-just-happened"
+                ]
+              }
             ]
           },
           {
-            "group": "Connect to Frameworks",
+            "tab": "Add ATH to Your App",
             "pages": [
-              "build-an-agent/langchain",
-              "build-an-agent/claude-code"
+              {
+                "group": "Server-Side Tutorial",
+                "pages": [
+                  "add-ath-to-your-app/tutorial",
+                  "add-ath-to-your-app/existing-express-app",
+                  "add-ath-to-your-app/existing-oauth"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Set Up a Gateway",
+            "pages": [
+              {
+                "group": "Gateway Tutorial",
+                "pages": [
+                  "setup-gateway/tutorial",
+                  "setup-gateway/add-providers",
+                  "setup-gateway/production"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Build an Agent",
+            "pages": [
+              {
+                "group": "Agent Tutorial",
+                "pages": [
+                  "build-an-agent/tutorial",
+                  "build-an-agent/typescript-sdk",
+                  "build-an-agent/python-sdk",
+                  "build-an-agent/athx-cli"
+                ]
+              },
+              {
+                "group": "Connect to Frameworks",
+                "pages": [
+                  "build-an-agent/langchain",
+                  "build-an-agent/claude-code"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Reference",
+            "pages": [
+              {
+                "group": "Concepts",
+                "pages": [
+                  "concepts/agent-identity",
+                  "concepts/scope-intersection",
+                  "concepts/gateway-vs-native",
+                  "concepts/security"
+                ]
+              },
+              {
+                "group": "API",
+                "pages": [
+                  "reference/api-endpoints",
+                  "reference/error-codes",
+                  "reference/glossary"
+                ]
+              }
             ]
           }
         ]
       },
       {
-        "tab": "Reference",
-        "pages": [
+        "language": "zh",
+        "tabs": [
           {
-            "group": "Concepts",
+            "tab": "快速开始",
             "pages": [
-              "concepts/agent-identity",
-              "concepts/scope-intersection",
-              "concepts/gateway-vs-native",
-              "concepts/security"
+              {
+                "group": "入门指南",
+                "pages": [
+                  "zh/start-here/what-is-ath",
+                  "zh/start-here/jwt-and-oauth-basics",
+                  "zh/start-here/run-the-demo",
+                  "zh/start-here/what-just-happened"
+                ]
+              }
             ]
           },
           {
-            "group": "API",
+            "tab": "将 ATH 添加到应用",
             "pages": [
-              "reference/api-endpoints",
-              "reference/error-codes",
-              "reference/glossary"
+              {
+                "group": "服务端教程",
+                "pages": [
+                  "zh/add-ath-to-your-app/tutorial",
+                  "zh/add-ath-to-your-app/existing-express-app",
+                  "zh/add-ath-to-your-app/existing-oauth"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "设置网关",
+            "pages": [
+              {
+                "group": "网关教程",
+                "pages": [
+                  "zh/setup-gateway/tutorial",
+                  "zh/setup-gateway/add-providers",
+                  "zh/setup-gateway/production"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "构建 Agent",
+            "pages": [
+              {
+                "group": "Agent 教程",
+                "pages": [
+                  "zh/build-an-agent/tutorial",
+                  "zh/build-an-agent/typescript-sdk",
+                  "zh/build-an-agent/python-sdk",
+                  "zh/build-an-agent/athx-cli"
+                ]
+              },
+              {
+                "group": "框架集成",
+                "pages": [
+                  "zh/build-an-agent/langchain",
+                  "zh/build-an-agent/claude-code"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "参考",
+            "pages": [
+              {
+                "group": "核心概念",
+                "pages": [
+                  "zh/concepts/agent-identity",
+                  "zh/concepts/scope-intersection",
+                  "zh/concepts/gateway-vs-native",
+                  "zh/concepts/security"
+                ]
+              },
+              {
+                "group": "API",
+                "pages": [
+                  "zh/reference/api-endpoints",
+                  "zh/reference/error-codes",
+                  "zh/reference/glossary"
+                ]
+              }
             ]
           }
         ]
