@@ -1,0 +1,23 @@
+---
+title: "术语表"
+description: "ATH 术语快速定义。"
+---
+
+| 术语 | 定义 |
+|------|------|
+| **Agent** | 代表用户调用 API 的 AI 软件 |
+| **Agent 认证（attestation）** | 证明 Agent 身份的签名 JWT |
+| **`agent_id`** | Agent 发布其身份文档的 URL |
+| **ATH 令牌** | ATH 服务器签发的不透明访问令牌，限定范围且有时间限制 |
+| **`ath_session_id`** | 追踪进行中授权的临时 ID（10 分钟 TTL，单次使用） |
+| **`client_id` / `client_secret`** | 注册时颁发给 Agent 的凭据 |
+| **发现文档** | 位于 `.well-known/ath-app.json` 或 `.well-known/ath.json` 的 JSON |
+| **有效作用域** | 实际授予的权限（= 批准 ∩ 同意 ∩ 请求 的交集） |
+| **网关** | Agent 和上游 OAuth 服务之间的信任中间层 |
+| **原生模式** | 服务直接实现 ATH 端点 |
+| **阶段 A** | 服务端对 Agent 的审批（注册） |
+| **阶段 B** | 用户端的授权（OAuth 授权） |
+| **PKCE** | Proof Key for Code Exchange——防止 OAuth 授权码被截获（ATH 要求使用） |
+| **提供商** | 通过网关可访问的上游服务（如 GitHub、Google） |
+| **代理转发（Proxy）** | 网关端点，使用存储的 OAuth 令牌将 Agent 请求转发给上游 |
+| **作用域交集** | `有效 = 服务批准 ∩ 用户同意 ∩ Agent 请求` |

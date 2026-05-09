@@ -1,0 +1,111 @@
+---
+title: "LangChain 集成"
+description: "让 LangChain Agent 安全访问 ATH 保护的 API。"
+---
+
+## 基本思路
+
+你的 LangChain Agent 对任务进行推理。当它需要外部数据时，调用 **ATHTool**——通过 ATH 以适当的用户授权进行 API 调用。
+
+```mermaid
+graph LR
+    User["👤 用户提问"] --> Agent["🤖 LangChain Agent"]
+    Agent -->|"决定调用"| Tool["🔧 ATHTool"]
+    Tool -->|"ATH 代理转发"| API["📦 受保护的 API"]
+    API -->|"数据"| Tool
+    Tool -->|"数据"| Agent
+    Agent -->|"回答"| User
+```
+
+---
+
+## ATHTool 实现
+
+```python
+"""ATHTool — 将 ATH 代理转发的 API 封装为 LangChain 工具。"""
+
+import json
+from typing import Optional, Type
+from pydantic import BaseModel, Field
+from langchain_core.tools import BaseTool
+from ath import ATHGatewayClient, ATHError
+
+
+class ATHToolInput(BaseModel):
+    method: str = Field(description="HTTP method: GET, POST, PUT, DELETE")
+    path: str = Field(description="API path, e.g. /user/repos")
+    body: Optional[str] = Field(default=None, description="JSON body for POST/PUT")
+
+
+class ATHTool(BaseTool):
+    """Call an API through ATH gateway with user-consented access."""
+
+    name: str = "ath_api"
+    description: str = "Call an external API securely through ATH."
+    args_schema: Type[BaseModel] = ATHToolInput
+    client: ATHGatewayClient
+    provider: str
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def _run(self, method: str, path: str, body: Optional[str] = None, **kwargs) -> str:
+        try:
+            parsed = json.loads(body) if body else None
+            result = self.client.proxy(self.provider, method.upper(), path, body=parsed)
+            return json.dumps(result, indent=2) if isinstance(result, dict) else str(result)
+        except ATHError as e:
+            return json.dumps({"error": e.code, "message": e.message})
+```
+
+---
+
+## 配合演示使用
+
+```python
+from ath import ATHGatewayClient
+from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.prompts import ChatPromptTemplate
+
+# 设置 ATH 客户端（假设注册 + 令牌已完成）
+client = ATHGatewayClient(url="https://your-gateway.com", agent_id=..., private_key=pem)
+client.load_credentials("creds.json")
+client.set_token("ath_tk_...")
+
+# 创建工具
+shop_tool = ATHTool(
+    name="shop_api",
+    description="Access ATH Shop: GET /products, POST /cart/add, POST /orders, GET /orders",
+    client=client,
+    provider="ath-shop",
+)
+
+# 创建 Agent
+llm = ChatOpenAI(model="gpt-4o")
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You help users shop. Use shop_api to browse and buy products."),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+agent = create_tool_calling_agent(llm, [shop_tool], prompt)
+executor = AgentExecutor(agent=agent, tools=[shop_tool])
+
+# 运行
+result = executor.invoke({"input": "Find me a laptop under $1000 and add it to my cart"})
+print(result["output"])
+```
+
+---
+
+## 安全保障
+
+LangChain Agent 只能访问**注册时批准**且**用户授权**的内容。如果它尝试访问没有权限的作用域：
+
+```python
+# Agent 尝试访问订单但只有 products:read 权限
+result = client.proxy("ath-shop", "GET", "/orders")
+# → ATHError(code="SCOPE_NOT_APPROVED")
+```
+
+Agent 无法自行提升权限。
