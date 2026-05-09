@@ -1,79 +1,155 @@
 ---
 title: "Tutorial: Build an Agent"
-description: "Make your AI agent call ATH-protected APIs — from first request to placing an order."
+description: "Make your AI agent call ATH-protected APIs — from first connection to placing an order."
 ---
 
-Your agent needs to access an API that's protected by ATH. This tutorial walks you through connecting to the demo shop and placing an order.
+## What We're Building
 
-**What you'll build:** An agent that discovers the shop, gets user approval, and buys products.
+An agent that connects to an ATH-protected service, gets user approval, and calls the service's API. We'll use the demo shop as the target service.
 
-**Prerequisites:** The [demo running](/start-here/run-the-demo) (or any ATH-protected service). Node.js 20+ or Python 3.10+.
+```mermaid
+graph LR
+    Agent["🤖 Your Agent<br/>(this tutorial)"]
+    
+    Agent -->|"1. discover"| Service["🏢 ATH Service"]
+    Agent -->|"2. register"| Service
+    Agent -->|"3. authorize"| Service
+    Service -->|"consent URL"| Browser["👤 User's Browser"]
+    Browser -->|"approves"| Service
+    Agent -->|"4. token"| Service
+    Agent -->|"5. call API"| Service
+```
 
 ---
 
-## The 7 Commands
+## Before You Start
+
+### What you need
+
+| Requirement | Why you need it | Details |
+|-------------|----------------|---------|
+| **An ATH-protected service to connect to** | Your agent needs something to talk to | Use the [demo](/start-here/run-the-demo), or any ATH-enabled service |
+| **Node.js 20+ or Python 3.10+** | To run the SDK | Or use the `athx` CLI (Node.js only) |
+
+### What you don't need (in most cases)
+
+| You might think you need... | Reality |
+|----------------------------|---------|
+| A public URL for your agent | **Not in gateway mode.** The agent connects outward to the gateway — it doesn't receive inbound connections. In native mode with attestation verification enabled, the server does need to fetch your agent's identity document — but you can skip this in development. |
+| To understand JWT or PKCE | **The SDK handles it.** You call `register()` and the SDK signs the attestation JWT automatically. You call `authorize()` and the SDK generates the PKCE challenge automatically. |
+| An OAuth server | **No.** The service (or gateway) has the OAuth server. You're the client. |
+
+### Gateway mode vs Native mode — which should I use?
+
+| Your situation | Use |
+|---------------|-----|
+| The service has `/.well-known/ath-app.json` and you're connecting directly | **Native mode** — `ATHNativeClient` / `--mode native` |
+| You're going through a gateway that has `/.well-known/ath.json` | **Gateway mode** — `ATHGatewayClient` / `--gateway URL` |
+| You're not sure | **Gateway mode** — it's simpler and your agent doesn't need a public identity URL |
+
+---
+
+## The Flow
 
 Every ATH agent interaction follows this sequence:
 
-```
-discover → register → authorize → [user consents] → token → use API → revoke
+```mermaid
+stateDiagram-v2
+    [*] --> Discover: "What does this service offer?"
+    Discover --> Register: "Can I use it?"
+    Register --> Authorize: "Ask the user for permission"
+    Authorize --> WaitForUser: "User sees consent screen"
+    WaitForUser --> Token: "User approved → get access token"
+    Token --> CallAPI: "Use the API"
+    CallAPI --> CallAPI: "Make more requests"
+    CallAPI --> Revoke: "Done → clean up"
+    Revoke --> [*]
 ```
 
-Let's do each one. Pick your language:
+Pick your language:
 
 <Tabs>
   <Tab title="TypeScript SDK">
+    **Install:**
+    ```bash
+    npm install @ath-protocol/client jose
+    ```
+
+    **Gateway mode** (connecting through a gateway):
     ```typescript
-    import { ATHNativeClient } from "@ath-protocol/client";
+    import { ATHGatewayClient } from "@ath-protocol/client";
     import { generateKeyPair } from "jose";
 
+    // Generate an identity key pair.
+    // In production, load a persistent key from disk instead.
     const { privateKey } = await generateKeyPair("ES256");
 
-    const client = new ATHNativeClient({
-      url: "https://ath-shop.local:3000",
-      agentId: "https://agent.ath.local:4000/.well-known/agent.json",
+    const client = new ATHGatewayClient({
+      url: "https://your-gateway.com",          // gateway URL
+      agentId: "https://your-agent.com/.well-known/agent.json",
       privateKey,
     });
 
-    // 1. Discover
+    // 1. Discover — what providers are available?
     const discovery = await client.discover();
-    console.log("Scopes available:", discovery.auth.scopes_supported);
+    console.log("Providers:", discovery.supported_providers.map(p => p.provider_id));
 
-    // 2. Register
+    // 2. Register — request access to a provider
     const reg = await client.register({
-      developer: { name: "My Agent", id: "my-agent-dev" },
-      providers: [{ provider_id: "ath-shop", scopes: ["products:read", "cart:write", "orders:write"] }],
-      purpose: "AI shopping assistant",
+      developer: { name: "My Company", id: "my-company" },
+      providers: [{ provider_id: "my-provider", scopes: ["read", "write"] }],
+      purpose: "AI assistant",
     });
-    console.log("Approved:", reg.agent_status);
+    console.log("Status:", reg.agent_status);  // "approved"
 
-    // 3. Authorize
-    const auth = await client.authorize("ath-shop", ["products:read", "cart:write", "orders:write"]);
+    // 3. Authorize — get a URL for the user to approve
+    const auth = await client.authorize("my-provider", ["read", "write"]);
     console.log("Send user to:", auth.authorization_url);
-    // → User opens URL in browser, sees consent page, clicks Authorize
+    console.log("Session ID:", auth.ath_session_id);  // save this!
 
-    // 4. Token (after user approves)
-    const token = await client.exchangeToken("exchange", auth.ath_session_id);
-    console.log("Got token! Scopes:", token.effective_scopes);
+    // 4. Token — after the user approves in their browser
+    const token = await client.exchangeToken("auth-code", auth.ath_session_id);
+    console.log("Token:", token.access_token);
+    console.log("Effective scopes:", token.effective_scopes);
 
-    // 5. Use the API
-    const products = await client.api("GET", "/products");
-    console.log("Products:", products);
+    // 5. Call the API
+    const data = await client.proxy("my-provider", "GET", "/some-endpoint");
+    console.log("Response:", data);
 
-    await client.api("POST", "/cart/add", { productId: products.products[0].id, quantity: 2 });
-    await client.api("POST", "/orders", { shippingAddress: "123 Agent St" });
-
-    // 6. Revoke
+    // 6. Revoke when done
     await client.revoke();
+    ```
+
+    **Native mode** (connecting directly to a service):
+    ```typescript
+    import { ATHNativeClient } from "@ath-protocol/client";
+
+    const client = new ATHNativeClient({
+      url: "https://your-service.com",           // service URL (not gateway)
+      agentId: "https://your-agent.com/.well-known/agent.json",
+      privateKey,
+    });
+
+    await client.discover();  // fetches /.well-known/ath-app.json
+    // ... register, authorize, token same as above ...
+
+    // Use api() instead of proxy() — calls the service directly at {api_base}/{path}
+    const data = await client.api("GET", "/some-endpoint");
     ```
   </Tab>
   <Tab title="Python SDK">
+    **Install:**
+    ```bash
+    pip install ath-sdk
+    ```
+
+    **Gateway mode:**
     ```python
-    from ath import ATHNativeClient
+    from ath import ATHGatewayClient
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives import serialization
 
-    # Generate key (use persistent key in production)
+    # Generate an identity key pair.
     key = ec.generate_private_key(ec.SECP256R1())
     pem = key.private_bytes(
         serialization.Encoding.PEM,
@@ -81,140 +157,137 @@ Let's do each one. Pick your language:
         serialization.NoEncryption(),
     ).decode()
 
-    with ATHNativeClient(
-        url="https://ath-shop.local:3000",
-        agent_id="https://agent.ath.local:4000/.well-known/agent.json",
+    with ATHGatewayClient(
+        url="https://your-gateway.com",
+        agent_id="https://your-agent.com/.well-known/agent.json",
         private_key=pem,
     ) as client:
         # 1. Discover
         discovery = client.discover()
-        print("Scopes:", discovery.auth.scopes_supported)
+        for p in discovery.supported_providers:
+            print(f"  {p.provider_id}: {p.available_scopes}")
 
         # 2. Register
         reg = client.register(
-            developer={"name": "My Agent", "id": "my-agent-dev"},
-            providers=[{"provider_id": "ath-shop", "scopes": ["products:read", "cart:write", "orders:write"]}],
-            purpose="AI shopping assistant",
+            developer={"name": "My Company", "id": "my-company"},
+            providers=[{"provider_id": "my-provider", "scopes": ["read", "write"]}],
+            purpose="AI assistant",
         )
-        print("Approved:", reg.agent_status)
+        print("Status:", reg.agent_status)
 
         # 3. Authorize
-        auth = client.authorize("ath-shop", ["products:read", "cart:write", "orders:write"])
+        auth = client.authorize("my-provider", ["read", "write"])
         print("Send user to:", auth.authorization_url)
-        # → User opens URL, approves
 
-        # 4. Token
-        token = client.exchange_token("exchange", auth.ath_session_id)
-        print("Got token! Scopes:", token.effective_scopes)
+        # 4. Token (after user approves)
+        token = client.exchange_token("auth-code", auth.ath_session_id)
+        print("Scopes:", token.effective_scopes)
 
-        # 5. Use API
-        products = client.api("GET", "/products")
-        client.api("POST", "/cart/add", {"productId": products["products"][0]["id"], "quantity": 2})
-        client.api("POST", "/orders", {"shippingAddress": "123 Agent St"})
+        # 5. Call the API
+        data = client.proxy("my-provider", "GET", "/some-endpoint")
+        print("Response:", data)
 
         # 6. Revoke
         client.revoke()
     ```
+
+    **Native mode** — use `ATHNativeClient` and `client.api()` instead of `client.proxy()`.
   </Tab>
   <Tab title="athx CLI">
+    **Install:**
     ```bash
-    SERVICE="https://ath-shop.local:3000"
-    AGENT="https://agent.ath.local:4000/.well-known/agent.json"
+    npm install -g athx
+    ```
+
+    **Gateway mode:**
+    ```bash
+    GATEWAY="https://your-gateway.com"
 
     # 1. Discover
-    athx discover --mode native --service $SERVICE --agent-id $AGENT
+    athx discover --gateway $GATEWAY
 
     # 2. Register
-    athx register --mode native --service $SERVICE --agent-id $AGENT \
-      --provider ath-shop --scopes "products:read,cart:write,orders:write"
+    athx register --gateway $GATEWAY \
+      --provider my-provider --scopes "read,write"
 
     # 3. Authorize
-    athx authorize --mode native --service $SERVICE --agent-id $AGENT \
-      --provider ath-shop --scopes "products:read,cart:write,orders:write"
-    # → Open the authorization_url in browser, log in, click Authorize
+    athx authorize --gateway $GATEWAY \
+      --provider my-provider --scopes "read,write"
+    # → Copy the authorization_url and open it in your browser
+    # → User approves → note the session_id from the output
 
-    # 4. Token
-    athx token --mode native --service $SERVICE --agent-id $AGENT \
-      --code exchange --session <session_id from step 3>
+    # 4. Token (after user approves)
+    athx token --gateway $GATEWAY \
+      --code AUTH_CODE --session SESSION_ID
 
-    # 5. Use API
-    athx proxy --mode native --service $SERVICE --agent-id $AGENT \
-      ath-shop GET /products
-
-    athx proxy --mode native --service $SERVICE --agent-id $AGENT \
-      ath-shop POST /cart/add --body '{"productId":"1","quantity":2}'
-
-    athx proxy --mode native --service $SERVICE --agent-id $AGENT \
-      ath-shop POST /orders --body '{"shippingAddress":"123 Agent St"}'
+    # 5. Call the API
+    athx proxy my-provider GET /some-endpoint --gateway $GATEWAY
 
     # 6. Revoke
-    athx revoke --mode native --service $SERVICE --agent-id $AGENT --provider ath-shop
+    athx revoke --gateway $GATEWAY --provider my-provider
     ```
+
+    **Native mode** — use `--mode native --service URL` instead of `--gateway URL`.
   </Tab>
 </Tabs>
 
 ---
 
-## What Each Step Does
+## Understanding the User Consent Step
 
-| Step | What happens | If you skip it |
-|:----:|-------------|---------------|
-| **Discover** | Learn what the service offers | You won't know the available scopes or endpoints |
-| **Register** | Service decides if your agent is allowed | `AGENT_NOT_REGISTERED` error on everything else |
-| **Authorize** | Get a URL for user consent | No user consent = no token |
-| **Token** | Get an access token (scoped) | Can't call any API |
-| **Use API** | Call the service with your token | — |
-| **Revoke** | Clean up (optional but polite) | Token expires naturally, but best practice to revoke |
+Step 3 (Authorize) returns a URL. This is the step most beginners find confusing, so let's break it down:
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 Your Agent
+    participant Service as 🏢 Service/Gateway
+    participant Browser as 👤 User's Browser
+    participant OAuth as 🔐 OAuth Provider
+
+    Agent->>Service: POST /ath/authorize
+    Service-->>Agent: { authorization_url, ath_session_id }
+    
+    Note over Agent: Your agent somehow tells<br/>the user to open this URL
+    
+    Agent->>Browser: "Please open this URL"
+    Browser->>OAuth: User visits authorization_url
+    OAuth->>Browser: Consent screen: "Allow read + write?"
+    Browser->>OAuth: User clicks "Approve"
+    OAuth->>Service: Redirect to callback URL
+    Service->>Service: Store user's consent
+    
+    Note over Agent: Now your agent can<br/>exchange the session for a token
+    
+    Agent->>Service: POST /ath/token (with ath_session_id)
+    Service-->>Agent: { access_token, effective_scopes }
+```
+
+The key insight: **your agent doesn't handle the OAuth redirect.** The service (or gateway) handles the callback. Your agent just needs to:
+1. Get the `authorization_url` from step 3
+2. Show it to the user somehow (print it, open a browser, send a link)
+3. Wait for the user to approve
+4. Call `/ath/token` with the `ath_session_id` from step 3
 
 ---
 
-## Gateway Mode vs Native Mode
+## Try It With the Demo
 
-The code above uses **native mode** (agent connects directly to the service). For **gateway mode**, just change the URL and use gateway-specific methods:
+Run the [ATH Demo](/start-here/run-the-demo) to test your agent code against a real service:
 
-<Tabs>
-  <Tab title="TypeScript (Gateway)">
-    ```typescript
-    import { ATHGatewayClient } from "@ath-protocol/client";
+```bash
+git clone https://github.com/ath-protocol/demo.git
+cd demo && cd demo/native
+docker compose up --build
+```
 
-    const client = new ATHGatewayClient({
-      url: "http://gateway.ath.local:4001",  // gateway URL, not service
-      agentId: "https://agent.ath.local:4000/.well-known/agent.json",
-      privateKey,
-    });
-
-    await client.discover();  // Gets gateway's provider list
-    // ... register, authorize, token same as before ...
-    
-    // Use proxy() instead of api()
-    const products = await client.proxy("ath-shop", "GET", "/products");
-    ```
-  </Tab>
-  <Tab title="athx CLI (Gateway)">
-    ```bash
-    GW="http://gateway.ath.local:4001"
-    
-    athx discover --gateway $GW --agent-id $AGENT
-    athx register --gateway $GW --agent-id $AGENT --provider ath-shop --scopes "products:read"
-    athx authorize --gateway $GW --agent-id $AGENT --provider ath-shop --scopes "products:read"
-    athx token --gateway $GW --agent-id $AGENT --code <code> --session <session>
-    athx proxy ath-shop GET /products --gateway $GW --agent-id $AGENT
-    ```
-  </Tab>
-</Tabs>
+Then point your agent at the demo service or gateway and follow the steps above.
 
 ---
 
-## Next: Deep-Dive Into Your SDK
+## Next Steps
 
-<CardGroup cols={3}>
-  <Card title="TypeScript SDK" icon="js" href="/build-an-agent/typescript-sdk">
-    Full API reference + patterns
-  </Card>
-  <Card title="Python SDK" icon="python" href="/build-an-agent/python-sdk">
-    Sync/async + credential persistence
-  </Card>
-  <Card title="athx CLI" icon="terminal" href="/build-an-agent/athx-cli">
-    All commands + scripting
-  </Card>
-</CardGroup>
+- [TypeScript SDK reference](/build-an-agent/typescript-sdk) — full API docs
+- [Python SDK reference](/build-an-agent/python-sdk) — sync/async + credential persistence
+- [athx CLI reference](/build-an-agent/athx-cli) — all commands and scripting
+- [LangChain integration](/build-an-agent/langchain) — wrap ATH APIs as LangChain tools
+- [Claude Code integration](/build-an-agent/claude-code) — use athx from Claude Code

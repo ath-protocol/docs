@@ -48,7 +48,7 @@ graph TD
 ## Can I Use Both?
 
 Yes! The demo shows both modes with the same shop:
-- **Native:** Agent connects directly to `ath-shop.local:3000`
-- **Gateway:** Agent connects to `gateway.ath.local:4001`, which proxies to the shop
+- **Native:** Agent connects directly to the service (e.g., `https://your-app.com`)
+- **Gateway:** Agent connects to the gateway (e.g., `https://your-gateway.com`), which proxies to the service
 
 The shop's API code is identical in both cases — the difference is where the ATH layer sits.
