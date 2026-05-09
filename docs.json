@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "ATH Developer Guide",
-  "description": "Build trusted AI agent integrations with the Agent Trust Handshake Protocol. Guides for server implementors, gateway operators, and agent developers.",
+  "description": "Add secure AI agent access to your app in minutes. Tutorial-driven guides for the Agent Trust Handshake Protocol.",
   "colors": {
     "primary": "#2563EB",
     "light": "#60A5FA",
@@ -23,7 +23,11 @@
     },
     "links": [
       {
-        "label": "Protocol Spec",
+        "label": "Demo Repo",
+        "href": "https://github.com/ath-protocol/demo"
+      },
+      {
+        "label": "Spec",
         "href": "https://ath-protocol.github.io/agent-trust-handshake-protocol/"
       }
     ]
@@ -31,81 +35,61 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Foundations",
+        "tab": "Start Here",
         "pages": [
           {
-            "group": "Understanding the Basics",
+            "group": "Getting Started",
             "pages": [
-              "foundations/jwt-oauth-basics",
-              "foundations/the-agent-problem",
-              "foundations/ath-two-axis-trust",
-              "foundations/deployment-models"
+              "start-here/what-is-ath",
+              "start-here/run-the-demo",
+              "start-here/what-just-happened"
             ]
           }
         ]
       },
       {
-        "tab": "Server Guide",
+        "tab": "Add ATH to Your App",
         "pages": [
           {
-            "group": "Build an ATH Server",
+            "group": "Server-Side Tutorial",
             "pages": [
-              "server/architecture-overview",
-              "server/identity-attestation",
-              "server/registration",
-              "server/authorization",
-              "server/token-exchange",
-              "server/proxy",
-              "server/revocation",
-              "server/full-example"
-            ]
-          },
-          {
-            "group": "Integrate with Existing OAuth",
-            "pages": [
-              "server/adding-ath-to-existing-oauth"
+              "add-ath-to-your-app/tutorial",
+              "add-ath-to-your-app/existing-express-app",
+              "add-ath-to-your-app/existing-oauth"
             ]
           }
         ]
       },
       {
-        "tab": "Gateway Guide",
+        "tab": "Set Up a Gateway",
         "pages": [
           {
-            "group": "ATH Gateway",
+            "group": "Gateway Tutorial",
             "pages": [
-              "gateway/what-gateway-does",
-              "gateway/setup",
-              "gateway/provider-cookbook",
-              "gateway/architecture",
-              "gateway/production"
+              "setup-gateway/tutorial",
+              "setup-gateway/add-providers",
+              "setup-gateway/production"
             ]
           }
         ]
       },
       {
-        "tab": "Client Guide",
+        "tab": "Build an Agent",
         "pages": [
           {
-            "group": "Client Basics",
+            "group": "Agent Tutorial",
             "pages": [
-              "client/concepts"
+              "build-an-agent/tutorial",
+              "build-an-agent/typescript-sdk",
+              "build-an-agent/python-sdk",
+              "build-an-agent/athx-cli"
             ]
           },
           {
-            "group": "SDKs & CLI",
+            "group": "Connect to Frameworks",
             "pages": [
-              "client/typescript-sdk",
-              "client/python-sdk",
-              "client/athx-cli"
-            ]
-          },
-          {
-            "group": "Agent Frameworks",
-            "pages": [
-              "client/langchain-integration",
-              "client/claude-code-integration",
-              "client/openclaw-integration"
+              "build-an-agent/langchain",
+              "build-an-agent/claude-code"
             ]
           }
         ]
@@ -114,12 +98,20 @@
         "tab": "Reference",
         "pages": [
           {
-            "group": "Appendices",
+            "group": "Concepts",
             "pages": [
-              "appendices/api-reference",
-              "appendices/security-checklist",
-              "appendices/glossary",
-              "appendices/comparison"
+              "concepts/agent-identity",
+              "concepts/scope-intersection",
+              "concepts/gateway-vs-native",
+              "concepts/security"
+            ]
+          },
+          {
+            "group": "API",
+            "pages": [
+              "reference/api-endpoints",
+              "reference/error-codes",
+              "reference/glossary"
             ]
           }
         ]

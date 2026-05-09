@@ -1,0 +1,57 @@
+---
+title: "Security Model"
+description: "What ATH protects against and what you need to implement correctly."
+---
+
+## What ATH Protects Against
+
+| Threat | How ATH prevents it |
+|--------|-------------------|
+| Agent accesses service without service's permission | Phase A — registration + approval required |
+| Agent acts without user consent | Phase B — user must approve in browser |
+| Agent gets more scopes than approved | Scope intersection (3-way minimum) |
+| Stolen ATH token used by different agent | Token bound to `agent_id` |
+| Stolen ATH token used for different provider | Token bound to `provider_id` |
+| Replayed attestation JWT | `jti` uniqueness check |
+| Stale attestation JWT | `iat` must be within 5 minutes |
+| Token lives forever | `expires_in` (default 1 hour) |
+| Agent sees upstream OAuth token | Gateway holds it server-side; agent only gets opaque ATH token |
+
+---
+
+## What You Must Do Right
+
+### Required (protocol breaks without these)
+
+- [ ] **HTTPS in production** — ATH requires TLS 1.2+
+- [ ] **PKCE on all OAuth URLs** — the SDK does this automatically
+- [ ] **Validate attestation** — enable signature verification in production
+- [ ] **Check jti for replays** — use the built-in `InMemoryJtiCache` or Redis
+- [ ] **Token expiration** — enforce `expires_in`
+
+### Recommended (significantly improves security)
+
+- [ ] **Persistent key storage** — don't use ephemeral keys in production
+- [ ] **Audit logging** — log all registrations, authorizations, and proxy calls
+- [ ] **Rate limiting** — prevent brute-force on registration and token endpoints
+- [ ] **Scope-to-route mapping** — don't let `products:read` access order endpoints
+- [ ] **Encrypt stored provider tokens** — they're sensitive OAuth credentials
+
+---
+
+## The `skipAttestationVerification` Flag
+
+You'll see this in the demo:
+
+```typescript
+config: {
+  skipAttestationVerification: true, // ⚠️ DEVELOPMENT ONLY
+}
+```
+
+This disables cryptographic identity verification. It means:
+- Any string passed as `agent_attestation` is accepted
+- The server doesn't fetch the agent's public key
+- The server doesn't verify the JWT signature
+
+**Use this only for local development.** In production, remove it — the SDK handles signing correctly, so it "just works" once you publish a real identity document with your public key.
