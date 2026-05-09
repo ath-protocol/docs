@@ -36,6 +36,27 @@
     "languages": [
       {
         "language": "en",
+        "navbar": {
+          "primary": {
+            "type": "button",
+            "label": "GitHub",
+            "href": "https://github.com/ath-protocol"
+          },
+          "links": [
+            {
+              "label": "中文版",
+              "href": "/zh/start-here/what-is-ath"
+            },
+            {
+              "label": "Demo Repo",
+              "href": "https://github.com/ath-protocol/demo"
+            },
+            {
+              "label": "Spec",
+              "href": "https://ath-protocol.github.io/agent-trust-handshake-protocol/"
+            }
+          ]
+        },
         "tabs": [
           {
             "tab": "Start Here",
@@ -124,6 +145,27 @@
       },
       {
         "language": "cn",
+        "navbar": {
+          "primary": {
+            "type": "button",
+            "label": "GitHub",
+            "href": "https://github.com/ath-protocol"
+          },
+          "links": [
+            {
+              "label": "English",
+              "href": "/start-here/what-is-ath"
+            },
+            {
+              "label": "Demo Repo",
+              "href": "https://github.com/ath-protocol/demo"
+            },
+            {
+              "label": "Spec",
+              "href": "https://ath-protocol.github.io/agent-trust-handshake-protocol/"
+            }
+          ]
+        },
         "tabs": [
           {
             "tab": "快速开始",
