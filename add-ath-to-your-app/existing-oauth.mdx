@@ -7,6 +7,22 @@ description: "If you already have Auth0, Clerk, or a custom OAuth server — her
 
 If you use Auth0, Clerk, Firebase Auth, or your own OAuth server, you don't need to build a new one. You just **point ATH's config at your existing endpoints**.
 
+```mermaid
+graph LR
+    subgraph "What you have"
+        OAuth["🔐 Your OAuth Server<br/>(Auth0, Clerk, custom)"]
+    end
+    
+    subgraph "What you add"
+        ATH["🛡️ ATH Layer"]
+    end
+    
+    Agent["🤖 Agent"] -->|"ATH protocol"| ATH
+    ATH -->|"OAuth consent + token exchange"| OAuth
+    Browser["👤 User's Browser"] -->|"consent screen"| OAuth
+    OAuth -->|"redirect after approval"| ATH
+```
+
 ---
 
 ## The One Config Change
@@ -30,7 +46,29 @@ const handlers = createATHHandlers({
 
 ### What ATH Does With Your OAuth
 
-1. When an agent calls `/ath/authorize`, ATH builds a redirect URL to **your OAuth authorize endpoint** (with PKCE)
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 Agent
+    participant ATH as 🛡️ ATH Layer
+    participant OAuth as 🔐 Your OAuth Server
+    participant Browser as 👤 User's Browser
+
+    Agent->>ATH: POST /ath/authorize
+    ATH->>ATH: Build OAuth URL with PKCE challenge
+    ATH-->>Agent: authorization_url (pointing to your OAuth)
+
+    Browser->>OAuth: User visits authorization_url
+    OAuth->>Browser: Your consent screen
+    Browser->>OAuth: User clicks "Approve"
+    OAuth->>ATH: Redirect to /ath/callback?code=...
+
+    ATH->>OAuth: Exchange code + PKCE verifier for token
+    OAuth-->>ATH: OAuth access token
+    ATH->>ATH: Store token internally (agent never sees it)
+```
+
+In short:
+1. ATH builds a redirect URL to **your OAuth authorize endpoint** (with PKCE)
 2. Your OAuth server shows the consent screen to the user
 3. After consent, your OAuth server redirects to `/ath/callback` with an authorization code
 4. ATH exchanges that code at **your token endpoint** (server-side, with PKCE verifier)

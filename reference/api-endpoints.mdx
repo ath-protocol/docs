@@ -3,6 +3,20 @@ title: "API Endpoints"
 description: "All ATH protocol endpoints with request/response formats."
 ---
 
+## Protocol Flow
+
+The endpoints are called in this order:
+
+```mermaid
+graph LR
+    D["1. Discovery<br/>GET /.well-known/ath-app.json"] --> R["2. Register<br/>POST /ath/agents/register"]
+    R --> A["3. Authorize<br/>POST /ath/authorize"]
+    A --> CB["4. Callback<br/>GET /ath/callback"]
+    CB --> T["5. Token<br/>POST /ath/token"]
+    T --> P["6. Proxy<br/>ANY /ath/proxy/*"]
+    P --> RV["7. Revoke<br/>POST /ath/revoke"]
+```
+
 ## Endpoint Map
 
 | Method | Path | Purpose |
