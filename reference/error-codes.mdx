@@ -3,6 +3,18 @@ title: "Error Codes"
 description: "All ATH error codes, what they mean, and how to fix them."
 ---
 
+## Where Errors Happen
+
+```mermaid
+graph LR
+    R["Register"] -->|"INVALID_ATTESTATION<br/>CONFLICT"| E1["❌"]
+    A["Authorize"] -->|"AGENT_NOT_REGISTERED<br/>SCOPE_NOT_APPROVED"| E2["❌"]
+    T["Token"] -->|"SESSION_EXPIRED<br/>IDENTITY_MISMATCH"| E3["❌"]
+    P["Proxy"] -->|"TOKEN_EXPIRED<br/>PROVIDER_MISMATCH"| E4["❌"]
+```
+
+Most errors are self-explanatory from their code. The table below maps each to its cause and fix.
+
 ## Error Response Format
 
 ```json

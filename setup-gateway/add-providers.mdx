@@ -3,6 +3,21 @@ title: "Add Providers"
 description: "Configure GitHub, Google, Slack, or any OAuth provider in your gateway."
 ---
 
+## How Providers Connect
+
+Each provider is an OAuth-protected service that the gateway can proxy access to:
+
+```mermaid
+graph LR
+    Agent["🤖 Agent"] --> GW["🛡️ Gateway"]
+    
+    GW -->|"OAuth + API proxy"| GitHub["📦 GitHub<br/>client_id: abc<br/>scopes: read:user, repo"]
+    GW -->|"OAuth + API proxy"| Google["📦 Google Calendar<br/>client_id: xyz<br/>scopes: calendar.readonly"]
+    GW -->|"OAuth + API proxy"| Slack["📦 Slack<br/>client_id: 123<br/>scopes: chat:write"]
+```
+
+For each provider, you register an OAuth app with that provider (getting a `client_id` and `client_secret`), then add it to your gateway's `providers.json`.
+
 ## providers.json Format
 
 Each provider needs 6 fields:
