@@ -39,7 +39,7 @@
         "tabs": [
           {
             "tab": "Start Here",
-            "pages": [
+            "groups": [
               {
                 "group": "Getting Started",
                 "pages": [
@@ -53,7 +53,7 @@
           },
           {
             "tab": "Add ATH to Your App",
-            "pages": [
+            "groups": [
               {
                 "group": "Server-Side Tutorial",
                 "pages": [
@@ -66,7 +66,7 @@
           },
           {
             "tab": "Set Up a Gateway",
-            "pages": [
+            "groups": [
               {
                 "group": "Gateway Tutorial",
                 "pages": [
@@ -79,7 +79,7 @@
           },
           {
             "tab": "Build an Agent",
-            "pages": [
+            "groups": [
               {
                 "group": "Agent Tutorial",
                 "pages": [
@@ -100,7 +100,7 @@
           },
           {
             "tab": "Reference",
-            "pages": [
+            "groups": [
               {
                 "group": "Concepts",
                 "pages": [
@@ -123,11 +123,11 @@
         ]
       },
       {
-        "language": "zh",
+        "language": "cn",
         "tabs": [
           {
             "tab": "快速开始",
-            "pages": [
+            "groups": [
               {
                 "group": "入门指南",
                 "pages": [
@@ -141,7 +141,7 @@
           },
           {
             "tab": "将 ATH 添加到应用",
-            "pages": [
+            "groups": [
               {
                 "group": "服务端教程",
                 "pages": [
@@ -154,7 +154,7 @@
           },
           {
             "tab": "设置网关",
-            "pages": [
+            "groups": [
               {
                 "group": "网关教程",
                 "pages": [
@@ -167,7 +167,7 @@
           },
           {
             "tab": "构建 Agent",
-            "pages": [
+            "groups": [
               {
                 "group": "Agent 教程",
                 "pages": [
@@ -188,7 +188,7 @@
           },
           {
             "tab": "参考",
-            "pages": [
+            "groups": [
               {
                 "group": "核心概念",
                 "pages": [
