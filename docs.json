@@ -1,0 +1,138 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "ATH Developer Guide",
+  "description": "Build trusted AI agent integrations with the Agent Trust Handshake Protocol. Guides for server implementors, gateway operators, and agent developers.",
+  "colors": {
+    "primary": "#2563EB",
+    "light": "#60A5FA",
+    "dark": "#1E40AF"
+  },
+  "background": {
+    "color": {
+      "light": "#f8f9fc",
+      "dark": "#0f172a"
+    }
+  },
+  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "GitHub",
+      "href": "https://github.com/ath-protocol"
+    },
+    "links": [
+      {
+        "label": "Protocol Spec",
+        "href": "https://ath-protocol.github.io/agent-trust-handshake-protocol/"
+      }
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Foundations",
+        "pages": [
+          {
+            "group": "Understanding the Basics",
+            "pages": [
+              "foundations/jwt-oauth-basics",
+              "foundations/the-agent-problem",
+              "foundations/ath-two-axis-trust",
+              "foundations/deployment-models"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Server Guide",
+        "pages": [
+          {
+            "group": "Build an ATH Server",
+            "pages": [
+              "server/architecture-overview",
+              "server/identity-attestation",
+              "server/registration",
+              "server/authorization",
+              "server/token-exchange",
+              "server/proxy",
+              "server/revocation",
+              "server/full-example"
+            ]
+          },
+          {
+            "group": "Integrate with Existing OAuth",
+            "pages": [
+              "server/adding-ath-to-existing-oauth"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Gateway Guide",
+        "pages": [
+          {
+            "group": "ATH Gateway",
+            "pages": [
+              "gateway/what-gateway-does",
+              "gateway/setup",
+              "gateway/provider-cookbook",
+              "gateway/architecture",
+              "gateway/production"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Client Guide",
+        "pages": [
+          {
+            "group": "Client Basics",
+            "pages": [
+              "client/concepts"
+            ]
+          },
+          {
+            "group": "SDKs & CLI",
+            "pages": [
+              "client/typescript-sdk",
+              "client/python-sdk",
+              "client/athx-cli"
+            ]
+          },
+          {
+            "group": "Agent Frameworks",
+            "pages": [
+              "client/langchain-integration",
+              "client/claude-code-integration",
+              "client/openclaw-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "pages": [
+          {
+            "group": "Appendices",
+            "pages": [
+              "appendices/api-reference",
+              "appendices/security-checklist",
+              "appendices/glossary",
+              "appendices/comparison"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/ath-protocol"
+    }
+  }
+}

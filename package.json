@@ -1,0 +1,12 @@
+{
+  "name": "ath-developer-docs",
+  "private": true,
+  "description": "Developer documentation for the Agent Trust Handshake (ATH) Protocol",
+  "scripts": {
+    "dev": "mintlify dev",
+    "broken": "mintlify broken-links"
+  },
+  "devDependencies": {
+    "mintlify": "latest"
+  }
+}

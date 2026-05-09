@@ -1,0 +1,355 @@
+---
+title: "ATH: Two-Axis Trust"
+description: "The complete ATH handshake flow — how agents prove identity, get approved, obtain user consent, and access APIs."
+---
+
+## The ATH Handshake at a Glance
+
+The ATH protocol adds a **trust handshake** around standard OAuth. Think of it as a **two-phase gate**: the agent must pass through both Phase A (service approval) and Phase B (user consent) before getting an access token.
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 Agent
+    participant Gateway as 🛡️ ATH Gateway/Server
+    participant OAuth as 🔐 OAuth Provider
+    participant User as 👤 User
+    participant API as 📦 Provider API
+
+    rect rgb(230, 240, 255)
+    Note over Agent,Gateway: Phase A — App-Side Authorization
+    Agent->>Gateway: 1. Discover (GET /.well-known/ath.json)
+    Gateway-->>Agent: Available providers & scopes
+    Agent->>Gateway: 2. Register (POST /ath/agents/register)<br/>+ agent attestation JWT
+    Gateway->>Gateway: Verify attestation, apply policy
+    Gateway-->>Agent: client_id, client_secret, approval status
+    end
+
+    rect rgb(230, 255, 230)
+    Note over Agent,User: Phase B — User-Side Authorization
+    Agent->>Gateway: 3. Authorize (POST /ath/authorize)<br/>+ fresh attestation
+    Gateway->>Gateway: Build OAuth URL with PKCE
+    Gateway-->>Agent: authorization_url + ath_session_id
+    Agent->>User: 4. "Please visit this URL to authorize"
+    User->>OAuth: 5. Reviews & approves permissions
+    OAuth->>Gateway: 6. Callback with authorization code
+    Gateway->>OAuth: 7. Exchange code for provider token (server-side)
+    end
+
+    rect rgb(255, 245, 230)
+    Note over Agent,API: Token Exchange & API Access
+    Agent->>Gateway: 8. Token (POST /ath/token)<br/>+ fresh attestation + ath_session_id
+    Gateway->>Gateway: Compute scope intersection
+    Gateway-->>Agent: ATH access_token
+    Agent->>Gateway: 9. API call (ANY /ath/proxy/{provider}/...)<br/>+ Bearer ATH token
+    Gateway->>API: Forward with provider's OAuth token
+    API-->>Gateway: Response data
+    Gateway-->>Agent: Response data
+    end
+```
+
+---
+
+## Step 1: Discovery
+
+Before anything else, the agent needs to know **what's available**. It fetches the gateway's discovery document:
+
+```bash
+GET https://gateway.example.com/.well-known/ath.json
+```
+
+```json
+{
+  "ath_version": "0.1",
+  "gateway_id": "https://gateway.example.com",
+  "agent_registration_endpoint": "https://gateway.example.com/ath/agents/register",
+  "supported_providers": [
+    {
+      "provider_id": "github",
+      "display_name": "GitHub",
+      "available_scopes": ["read:user", "repo", "gist"],
+      "auth_mode": "OAUTH2",
+      "agent_approval_required": true
+    },
+    {
+      "provider_id": "google-calendar",
+      "display_name": "Google Calendar",
+      "available_scopes": ["calendar.readonly", "calendar.events"],
+      "auth_mode": "OAUTH2",
+      "agent_approval_required": true
+    }
+  ]
+}
+```
+
+<Info>
+  For **native mode** (where the service implements ATH directly), the discovery URL is `/.well-known/ath-app.json` with a slightly different format — see [Deployment Models](/foundations/deployment-models).
+</Info>
+
+---
+
+## Step 2: Registration (Phase A)
+
+The agent registers with the gateway, presenting its **identity attestation** — a signed JWT that proves "I am this agent, and here's my cryptographic proof."
+
+```bash
+POST https://gateway.example.com/ath/agents/register
+Content-Type: application/json
+
+{
+  "agent_id": "https://travel-agent.example.com/.well-known/agent.json",
+  "agent_attestation": "eyJhbGciOiJFUzI1NiIs...",
+  "developer": {
+    "name": "TravelCorp",
+    "id": "travelcorp-dev"
+  },
+  "requested_providers": [
+    {
+      "provider_id": "google-calendar",
+      "scopes": ["calendar.readonly"]
+    }
+  ],
+  "purpose": "Read user calendar to suggest travel dates"
+}
+```
+
+The gateway:
+1. **Verifies the attestation JWT** — checks signature against the agent's published public key
+2. **Applies policy** — decides which providers/scopes to approve
+3. Returns credentials:
+
+```json
+{
+  "client_id": "ath_abc123",
+  "client_secret": "ath_secret_xyz789",
+  "agent_status": "approved",
+  "approved_providers": [
+    {
+      "provider_id": "google-calendar",
+      "approved_scopes": ["calendar.readonly"],
+      "denied_scopes": []
+    }
+  ],
+  "approval_expires": "2025-07-01T00:00:00Z"
+}
+```
+
+### Agent Identity Document
+
+The `agent_id` is a URL pointing to a JSON document that the gateway can fetch to get the agent's public key:
+
+```json
+// https://travel-agent.example.com/.well-known/agent.json
+{
+  "ath_version": "0.1",
+  "agent_id": "https://travel-agent.example.com/.well-known/agent.json",
+  "name": "TravelBot",
+  "developer": {
+    "name": "TravelCorp",
+    "id": "travelcorp-dev",
+    "contact": "security@travelcorp.com"
+  },
+  "capabilities": ["calendar-reading", "trip-planning"],
+  "public_key": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+    "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
+  }
+}
+```
+
+### Agent Attestation JWT
+
+The attestation proves the agent possesses the private key corresponding to the published public key:
+
+```mermaid
+graph LR
+    subgraph "Attestation JWT"
+        H["Header<br/>alg: ES256<br/>kid: key-2024"]
+        P["Payload<br/>iss: agent domain<br/>sub: agent_id<br/>aud: gateway URL<br/>jti: unique-id<br/>iat/exp: timestamps"]
+        S["Signature<br/>signed with<br/>agent's private key 🔐"]
+    end
+    
+    GW["🛡️ Gateway"] -->|"1. fetch agent_id URL"| Doc["📄 agent.json"]
+    Doc -->|"2. extract public key"| GW
+    GW -->|"3. verify JWT signature"| S
+```
+
+---
+
+## Step 3: Authorization (Phase B)
+
+Now the agent starts the user consent flow:
+
+```bash
+POST https://gateway.example.com/ath/authorize
+Content-Type: application/json
+
+{
+  "client_id": "ath_abc123",
+  "agent_attestation": "eyJhbGciOiJFUzI1NiIs...",
+  "provider_id": "google-calendar",
+  "scopes": ["calendar.readonly"],
+  "state": "random-csrf-token-abc"
+}
+```
+
+The gateway builds an OAuth authorization URL with **PKCE** and returns it:
+
+```json
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/auth?client_id=...&scope=calendar.readonly&code_challenge=...&code_challenge_method=S256&...",
+  "ath_session_id": "ath_sess_def456"
+}
+```
+
+The agent directs the user to `authorization_url`. The user completes the OAuth consent at Google (or whichever provider). The gateway handles the callback and stores the user's consent.
+
+---
+
+## Step 4: Token Exchange
+
+After the user completes OAuth, the agent exchanges the session for an ATH access token:
+
+```bash
+POST https://gateway.example.com/ath/token
+Content-Type: application/json
+
+{
+  "grant_type": "authorization_code",
+  "client_id": "ath_abc123",
+  "client_secret": "ath_secret_xyz789",
+  "agent_attestation": "eyJhbGciOiJFUzI1NiIs...",
+  "code": "oauth-auth-code",
+  "ath_session_id": "ath_sess_def456"
+}
+```
+
+<Warning>
+  The `agent_attestation` for the token endpoint must have `aud` set to the **full token endpoint URL** (e.g. `https://gateway.example.com/ath/token`), not the gateway base URL.
+</Warning>
+
+### The Scope Intersection
+
+This is ATH's core innovation. The effective permissions are the **intersection** of three sets:
+
+```mermaid
+graph TD
+    A["🏢 Agent-Approved Scopes<br/>calendar.readonly, calendar.events"]
+    U["👤 User-Consented Scopes<br/>calendar.readonly"]
+    R["📋 Requested Scopes<br/>calendar.readonly"]
+    
+    A --> I["Intersection"]
+    U --> I
+    R --> I
+    I --> E["✅ Effective Scopes<br/>calendar.readonly"]
+```
+
+**Formula: `Effective = Agent-Approved ∩ User-Consented ∩ Requested`**
+
+The response includes the full intersection breakdown:
+
+```json
+{
+  "access_token": "ath_tk_ghi789",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "effective_scopes": ["calendar.readonly"],
+  "provider_id": "google-calendar",
+  "agent_id": "https://travel-agent.example.com/.well-known/agent.json",
+  "scope_intersection": {
+    "agent_approved": ["calendar.readonly"],
+    "user_consented": ["calendar.readonly"],
+    "effective": ["calendar.readonly"]
+  }
+}
+```
+
+If the intersection is **empty** (no common scopes across all three sets), the token request is **rejected**. This ensures no party grants more than they intended.
+
+---
+
+## Step 5: API Access via Proxy
+
+The agent uses the ATH token to call APIs through the gateway:
+
+```bash
+GET https://gateway.example.com/ath/proxy/google-calendar/v3/calendars/primary/events
+Authorization: Bearer ath_tk_ghi789
+X-ATH-Agent-ID: https://travel-agent.example.com/.well-known/agent.json
+```
+
+The gateway:
+1. Validates the ATH token (not expired, not revoked, provider matches)
+2. Checks the `X-ATH-Agent-ID` matches the token binding
+3. **Swaps the ATH token** for the stored upstream OAuth token
+4. Forwards the request to Google Calendar API
+5. Returns the response to the agent
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 Agent
+    participant GW as 🛡️ Gateway
+    participant API as 📦 Google Calendar API
+
+    Agent->>GW: GET /ath/proxy/google-calendar/v3/events<br/>Bearer: ath_tk_ghi789
+    GW->>GW: Validate ATH token<br/>Look up stored Google OAuth token
+    GW->>API: GET /v3/events<br/>Bearer: ya29.google-oauth-token
+    API-->>GW: Calendar events JSON
+    GW-->>Agent: Calendar events JSON
+```
+
+<Note>
+  The **upstream OAuth token never reaches the agent**. The gateway holds it securely and only uses it when proxying requests. This is a critical security boundary.
+</Note>
+
+---
+
+## Step 6: Revocation
+
+When the agent no longer needs access, it revokes the token:
+
+```bash
+POST https://gateway.example.com/ath/revoke
+Content-Type: application/json
+
+{
+  "client_id": "ath_abc123",
+  "client_secret": "ath_secret_xyz789",
+  "token": "ath_tk_ghi789"
+}
+```
+
+---
+
+## The Complete Trust Chain
+
+```mermaid
+graph TB
+    subgraph "Agent Proves Identity"
+        PK["🔐 Private Key"] -->|"signs"| ATT["JWT Attestation"]
+        ID["📄 .well-known/agent.json"] -->|"publishes"| PUB["🔓 Public Key"]
+    end
+    
+    subgraph "Phase A: Service Approves"
+        ATT -->|"verified by"| GW["🛡️ Gateway"]
+        PUB -->|"used by"| GW
+        GW -->|"policy check"| APPROVAL["✅ Approved Scopes"]
+    end
+    
+    subgraph "Phase B: User Consents"
+        GW -->|"builds OAuth URL"| OAUTH["🔐 OAuth Flow"]
+        OAUTH -->|"user approves"| CONSENT["✅ Consented Scopes"]
+    end
+    
+    subgraph "Access Granted"
+        APPROVAL -->|"∩"| INTERSECT["Scope Intersection"]
+        CONSENT -->|"∩"| INTERSECT
+        INTERSECT --> TOKEN["🎫 ATH Token"]
+        TOKEN --> PROXY["🔀 Proxied API Access"]
+    end
+```
+
+<Card title="Next: Deployment Models" icon="arrow-right" href="/foundations/deployment-models">
+  Gateway mode, native mode, and when to use each
+</Card>

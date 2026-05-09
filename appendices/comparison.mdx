@@ -1,0 +1,87 @@
+---
+title: "ATH vs OAuth vs MCP vs A2A"
+description: "How ATH relates to other protocols in the AI agent ecosystem."
+---
+
+## Protocol Comparison
+
+```mermaid
+graph TB
+    subgraph "What each protocol does"
+        OAuth["OAuth 2.0<br/>User consent & delegation"]
+        ATH["ATH<br/>Agent trust & two-axis auth"]
+        MCP["MCP<br/>Tool calling interface"]
+        A2A["A2A<br/>Agent-to-agent collaboration"]
+        TLS["TLS<br/>Encrypted transport"]
+    end
+    
+    ATH -->|"builds on"| OAuth
+    ATH -->|"secures"| MCP
+    ATH -->|"authenticates agents in"| A2A
+    MCP -->|"runs over"| TLS
+    A2A -->|"runs over"| TLS
+```
+
+## Feature Matrix
+
+| Feature | OAuth 2.0 | ATH | MCP | A2A |
+|---------|:---------:|:---:|:---:|:---:|
+| **User consent** | ✅ | ✅ (via OAuth) | ❌ | ❌ |
+| **Service approval of agent** | ❌ | ✅ | ❌ | ❌ |
+| **Agent identity verification** | ❌ | ✅ | ❌ | ❌ |
+| **Scope intersection** | ❌ | ✅ | ❌ | ❌ |
+| **Tool calling** | ❌ | ❌ | ✅ | ❌ |
+| **Agent collaboration** | ❌ | ❌ | ❌ | ✅ |
+| **Token management** | ✅ | ✅ | ❌ | ❌ |
+| **PKCE** | Optional | Required | N/A | N/A |
+
+## When to Use Each
+
+| Scenario | Protocol |
+|----------|---------|
+| Human user authorizes an app | **OAuth 2.0** alone is sufficient |
+| AI agent needs to access user data on external service | **ATH** (includes OAuth for user consent) |
+| Agent needs to call tools on an LLM platform | **MCP** (ATH can secure the connection) |
+| Two agents need to collaborate | **A2A** (ATH can authenticate the agents) |
+| Agent needs secure access to multiple services | **ATH Gateway** mode |
+
+## ATH + MCP
+
+MCP defines **how** an agent calls tools. ATH defines **whether** the agent is allowed to call them. Together:
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 Agent
+    participant MCP as 🔧 MCP Server
+    participant ATH as 🛡️ ATH Gateway
+    participant API as 📦 External API
+
+    Agent->>MCP: Call tool: "read_calendar"
+    MCP->>ATH: GET /ath/proxy/google-calendar/events<br/>Bearer: ath_tk_...
+    ATH->>ATH: Validate agent trust + scopes
+    ATH->>API: Forward with OAuth token
+    API-->>ATH: Calendar data
+    ATH-->>MCP: Calendar data
+    MCP-->>Agent: Tool result
+```
+
+## ATH + A2A
+
+When agents collaborate, ATH can verify that each agent is who it claims to be:
+
+```mermaid
+sequenceDiagram
+    participant A1 as 🤖 Agent A
+    participant A2 as 🤖 Agent B
+    participant ATH as 🛡️ ATH Verification
+
+    A1->>A2: "I need your help with X"<br/>+ attestation JWT
+    A2->>ATH: Verify Agent A's attestation
+    ATH->>ATH: Check signature, identity, freshness
+    ATH-->>A2: ✅ Agent A is verified
+    A2->>A1: "OK, here's the result"
+```
+
+## Summary
+
+**ATH does not replace any of these protocols.** It fills the **trust gap** that exists when AI agents interact with services. Use ATH alongside OAuth, MCP, and A2A for a complete, secure agent ecosystem.

@@ -1,0 +1,229 @@
+---
+title: "API Reference"
+description: "Complete ATH protocol endpoint reference with request/response schemas."
+---
+
+## Endpoint Summary
+
+| Method | Path | Auth | Purpose |
+|--------|------|:----:|---------|
+| `GET` | `/.well-known/ath.json` | Public | Gateway discovery |
+| `GET` | `/.well-known/ath-app.json` | Public | Native service discovery |
+| `POST` | `/ath/agents/register` | Attestation | Agent registration (Phase A) |
+| `GET` | `/ath/agents/{clientId}` | Authenticated | Registration lookup |
+| `POST` | `/ath/authorize` | Attestation | Start user OAuth (Phase B) |
+| `GET` | `/ath/callback` | Public | OAuth callback handler |
+| `POST` | `/ath/token` | Attestation + Secret | Token exchange |
+| `ANY` | `/ath/proxy/{provider_id}/{path}` | Bearer + Agent ID | API proxy |
+| `POST` | `/ath/revoke` | Optional Secret | Token revocation |
+
+---
+
+## Discovery
+
+### Gateway Discovery
+
+```
+GET /.well-known/ath.json
+```
+
+**Response (200):**
+
+```json
+{
+  "ath_version": "0.1",
+  "gateway_id": "https://gateway.example.com",
+  "agent_registration_endpoint": "https://gateway.example.com/ath/agents/register",
+  "supported_providers": [
+    {
+      "provider_id": "github",
+      "display_name": "GitHub",
+      "categories": [],
+      "available_scopes": ["read:user", "repo", "gist"],
+      "auth_mode": "OAUTH2",
+      "agent_approval_required": true
+    }
+  ]
+}
+```
+
+### Native Service Discovery
+
+```
+GET /.well-known/ath-app.json
+```
+
+**Response (200):**
+
+```json
+{
+  "ath_version": "0.1",
+  "app_id": "com.example.service",
+  "name": "Example Service",
+  "auth": {
+    "type": "oauth2",
+    "authorization_endpoint": "https://service.example.com/oauth/authorize",
+    "token_endpoint": "https://service.example.com/oauth/token",
+    "scopes_supported": ["read", "write"],
+    "agent_attestation_required": true
+  },
+  "api_base": "https://service.example.com/api/v1"
+}
+```
+
+---
+
+## Registration
+
+```
+POST /ath/agents/register
+```
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `agent_id` | string | ✅ | Agent identity URL |
+| `agent_attestation` | string | ✅ | ES256 JWT |
+| `developer` | object | | `{ name, id, contact? }` |
+| `requested_providers` | array | ✅ | `[{ provider_id, scopes }]` |
+| `purpose` | string | | Human-readable purpose |
+| `redirect_uris` | string[] | | Allowed redirect URIs |
+
+**Response (201):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `client_id` | string | Issued client identifier |
+| `client_secret` | string | Issued client secret |
+| `agent_status` | enum | `"approved"` \| `"pending"` \| `"denied"` |
+| `approved_providers` | array | Per-provider approval details |
+| `approval_expires` | string | ISO 8601 expiration |
+
+---
+
+## Authorization
+
+```
+POST /ath/authorize
+```
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `client_id` | string | ✅ | From registration |
+| `agent_attestation` | string | ✅ | Fresh ES256 JWT |
+| `provider_id` | string | ✅ | Provider to authorize |
+| `scopes` | string[] | ✅ | Requested scopes |
+| `state` | string | ✅ | CSRF token (≥128 bits) |
+| `user_redirect_uri` | string | | Post-consent redirect |
+| `resource` | string | | RFC 8707 resource |
+
+**Response (200):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `authorization_url` | string | URL for user to visit |
+| `ath_session_id` | string | Session ID for token exchange |
+
+---
+
+## Token Exchange
+
+```
+POST /ath/token
+```
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `grant_type` | string | ✅ | `"authorization_code"` |
+| `client_id` | string | ✅ | From registration |
+| `client_secret` | string | ✅ | From registration |
+| `agent_attestation` | string | ✅ | JWT with `aud` = token endpoint URL |
+| `code` | string | ✅ | Authorization code |
+| `ath_session_id` | string | ✅ | From authorize response |
+
+**Response (200):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `access_token` | string | Opaque ATH token |
+| `token_type` | string | `"Bearer"` |
+| `expires_in` | number | Seconds until expiry |
+| `effective_scopes` | string[] | Granted scopes |
+| `provider_id` | string | Authorized provider |
+| `agent_id` | string | Bound agent identity |
+| `scope_intersection` | object | `{ agent_approved, user_consented, effective }` |
+
+---
+
+## Proxy
+
+```
+ANY /ath/proxy/{provider_id}/{path}
+```
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|:--------:|-------------|
+| `Authorization: Bearer {token}` | ✅ | ATH access token |
+| `X-ATH-Agent-ID` | Optional | Agent identity (validated if present) |
+
+**Response:** Upstream API response (forwarded).
+
+---
+
+## Revocation
+
+```
+POST /ath/revoke
+```
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `token` | string | ✅ | Token to revoke |
+| `client_id` | string | | Agent's client ID |
+| `client_secret` | string | | Required if `client_id` present |
+
+**Response:** Always `200 OK` (RFC 7009 semantics).
+
+---
+
+## Error Format
+
+All error responses follow this format:
+
+```json
+{
+  "code": "ERROR_CODE",
+  "message": "Human-readable error description",
+  "details": {}
+}
+```
+
+### Error Codes
+
+| Code | HTTP | Description |
+|------|:----:|-------------|
+| `INVALID_ATTESTATION` | 401 | JWT invalid, expired, wrong audience, or replayed |
+| `AGENT_NOT_REGISTERED` | 403 | `client_id` not found in registry |
+| `AGENT_UNAPPROVED` | 403 | Registration pending or denied |
+| `PROVIDER_NOT_APPROVED` | 403 | Agent not approved for this provider |
+| `SCOPE_NOT_APPROVED` | 403 | Requested scopes exceed approved scopes |
+| `SESSION_NOT_FOUND` | 400 | Unknown `ath_session_id` |
+| `SESSION_EXPIRED` | 400 | Session older than TTL (default: 10 min) |
+| `STATE_MISMATCH` | 400 | OAuth state doesn't match |
+| `TOKEN_INVALID` | 401 | Unknown or malformed token |
+| `TOKEN_EXPIRED` | 401 | Token past `expires_in` |
+| `TOKEN_REVOKED` | 401 | Token was revoked |
+| `AGENT_IDENTITY_MISMATCH` | 403 | Attestation `sub` ≠ registered `agent_id` |
+| `PROVIDER_MISMATCH` | 403 | Token's provider ≠ requested provider |
+| `USER_DENIED` | 403 | User denied consent |
+| `OAUTH_ERROR` | 502 | Upstream OAuth provider error |
+| `INTERNAL_ERROR` | 500 | Server internal error |
