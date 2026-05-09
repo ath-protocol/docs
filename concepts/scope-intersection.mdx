@@ -46,7 +46,19 @@ This means:
 
 Token issuance **fails**. The agent gets a `SCOPE_NOT_APPROVED` error.
 
-Example: Agent is approved for `[products:read]` but requests `[orders:write]`. The intersection with the approved set is empty → no token issued.
+```mermaid
+graph TD
+    A["🏢 Service approved<br/>products:read"]
+    B["👤 User consented<br/>products:read"]
+    C["📋 Agent requested<br/>orders:write"]
+    
+    A --> I["∩ Intersection"]
+    B --> I
+    C --> I
+    I --> E["❌ Empty — no common scopes<br/>SCOPE_NOT_APPROVED"]
+```
+
+The agent requested `orders:write` but was only approved for `products:read`. No overlap → no token.
 
 ---
 

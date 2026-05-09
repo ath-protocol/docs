@@ -9,6 +9,33 @@ description: "Complete reference for ath-sdk in Python."
 pip install ath-sdk
 ```
 
+## How the SDK Fits In
+
+```mermaid
+graph LR
+    subgraph "Your Code"
+        App["Your Agent App"]
+    end
+    
+    subgraph "ath-sdk"
+        GW["ATHGatewayClient"]
+        Native["ATHNativeClient"]
+        Async["AsyncATH*Client"]
+    end
+
+    subgraph "ATH Server / Gateway"
+        Server["ATH Endpoints"]
+    end
+    
+    App --> GW
+    App --> Native
+    App --> Async
+    GW -->|"httpx requests"| Server
+    Native -->|"httpx requests"| Server
+```
+
+The SDK handles attestation signing, PKCE, state management, and HTTP requests. You call high-level methods like `discover()`, `register()`, `proxy()`.
+
 ## Quick Reference
 
 ```python

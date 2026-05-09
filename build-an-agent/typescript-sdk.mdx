@@ -9,6 +9,34 @@ description: "Complete reference for @ath-protocol/client in TypeScript."
 npm install @ath-protocol/client jose
 ```
 
+## How the SDK Fits In
+
+```mermaid
+graph LR
+    subgraph "Your Code"
+        App["Your Agent App"]
+    end
+    
+    subgraph "@ath-protocol/client"
+        GW["ATHGatewayClient"]
+        Native["ATHNativeClient"]
+        Attest["signAttestation()"]
+    end
+
+    subgraph "ATH Server / Gateway"
+        Server["ATH Endpoints"]
+    end
+    
+    App --> GW
+    App --> Native
+    GW --> Attest
+    Native --> Attest
+    GW -->|"HTTP requests"| Server
+    Native -->|"HTTP requests"| Server
+```
+
+The SDK handles attestation signing, PKCE, state management, and HTTP communication. You call high-level methods like `discover()`, `register()`, `proxy()`.
+
 ## Quick Reference
 
 ```typescript

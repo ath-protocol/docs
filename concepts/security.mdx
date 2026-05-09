@@ -3,6 +3,30 @@ title: "Security Model"
 description: "What ATH protects against and what you need to implement correctly."
 ---
 
+## The Trust Chain
+
+```mermaid
+graph TB
+    subgraph "Agent Proves Identity"
+        Key["🔐 Private Key"] -->|"signs"| JWT["Attestation JWT"]
+        Doc["📄 agent.json"] -->|"publishes"| PubKey["🔓 Public Key"]
+    end
+    
+    subgraph "Two-Gate Authorization"
+        JWT -->|"verified by"| Server["🏢 Server"]
+        PubKey -->|"fetched by"| Server
+        Server -->|"Phase A"| Approval["✅ Service Approves"]
+        OAuth["👤 User Consent"] -->|"Phase B"| Consent["✅ User Consents"]
+    end
+    
+    subgraph "Scoped Access"
+        Approval --> Intersection["⚖️ Scope Intersection"]
+        Consent --> Intersection
+        Intersection --> Token["🎫 Bound ATH Token"]
+        Token --> Proxy["🔀 Proxied API Access"]
+    end
+```
+
 ## What ATH Protects Against
 
 | Threat | How ATH prevents it |

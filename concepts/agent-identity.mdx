@@ -22,6 +22,29 @@ graph LR
 
 ---
 
+## How It All Connects
+
+```mermaid
+graph TB
+    subgraph "One-Time Setup"
+        GenKey["Generate ES256 key pair"] --> PrivKey["🔐 Private Key<br/>(keep secret)"]
+        GenKey --> PubKey["🔓 Public Key"]
+        PubKey --> Doc["📄 agent.json<br/>(hosted at agent_id URL)"]
+    end
+    
+    subgraph "Every ATH Request"
+        PrivKey -->|"signs"| JWT["Attestation JWT<br/>(iss, sub, aud, exp, jti)"]
+        JWT -->|"sent to"| Server["🏢 Server"]
+    end
+    
+    subgraph "Server Verification"
+        Server -->|"fetches"| Doc
+        Doc -->|"public key"| Verify["Verify JWT signature"]
+        Verify -->|"✅ valid"| Accept["Accept request"]
+        Verify -->|"❌ invalid"| Reject["INVALID_ATTESTATION"]
+    end
+```
+
 ## Identity Document
 
 Publish this at your `agent_id` URL (e.g., `https://your-agent.com/.well-known/agent.json`):

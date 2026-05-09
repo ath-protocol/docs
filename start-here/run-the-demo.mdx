@@ -9,6 +9,20 @@ The demo is a **real e-commerce shop** (ATH Shop) where:
 - Humans can browse products, add to cart, and check out normally
 - An AI agent can do the same — **but only after the user approves in their browser**
 
+```mermaid
+graph TB
+    subgraph "Demo Architecture"
+        Shop["🏢 ATH Shop<br/>Express + React + SQLite<br/>ath-shop.local:3000"]
+        Agent["🤖 Agent Identity Server<br/>Serves agent.json + public key<br/>agent.ath.local:4000"]
+        ATHX["⌨️ athx CLI<br/>Runs the ATH protocol flow"]
+        Browser["👤 Browser<br/>User consent + shopping UI"]
+    end
+    
+    ATHX -->|"ATH protocol"| Shop
+    ATHX -->|"identity"| Agent
+    Browser -->|"consent + shopping"| Shop
+```
+
 By the end of this page, you'll have watched an AI agent:
 1. Discover the shop's ATH endpoints
 2. Register itself with the shop

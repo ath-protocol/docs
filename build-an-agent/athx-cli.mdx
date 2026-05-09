@@ -9,6 +9,17 @@ description: "Use the athx command-line tool for ATH operations — great for sc
 npm install -g athx
 ```
 
+## How athx Fits In
+
+```mermaid
+graph LR
+    You["👤 You (terminal)"] -->|"athx commands"| CLI["⌨️ athx CLI"]
+    CLI -->|"ATH protocol"| Server["🛡️ ATH Server/Gateway"]
+    CLI -->|"stores"| Creds["~/.athx/<br/>config.json<br/>credentials.json"]
+```
+
+athx is a command-line client for the ATH protocol. It handles key management, attestation signing, credential storage, and all HTTP communication. Each command maps to one step in the ATH flow.
+
 ## Configuration
 
 ```bash
