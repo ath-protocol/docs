@@ -281,6 +281,50 @@ ATH needs an OAuth server to show the user a consent screen. Your options:
 | I have a **custom OAuth server** | Same — point the config at your endpoints |
 | I don't have OAuth yet | Use the demo's built-in OAuth server as a starting point, or set up a gateway instead |
 
+### Registering ATH as an OAuth Client
+
+The `oauth.client_id` and `oauth.client_secret` in your ATH config are **credentials for ATH to act as an OAuth client** with your OAuth server. You need to register these with your OAuth provider:
+
+1. **In your OAuth server** (Auth0, Clerk, or your own), create a new "application" or "client"
+2. Set the **allowed redirect URI** to `${YOUR_BASE_URL}/ath/callback` (e.g., `http://localhost:3000/ath/callback`)
+3. Copy the **client ID** and **client secret** into your ATH config
+
+This is the same process as registering any OAuth client — you're just registering ATH as one more client of your OAuth server.
+
+<Accordion title="Why does ATH need to be an OAuth client?">
+When an agent calls `/ath/authorize`, ATH needs to redirect the user to your OAuth server's consent screen. To do this, it acts as an OAuth client — it sends the user to the authorization URL with a `client_id`, `redirect_uri`, and `scope`.
+
+After the user approves, your OAuth server redirects the user's browser to `/ath/callback` with an authorization code. ATH then exchanges this code for an OAuth token **server-side** (using the `client_secret`). This token is stored internally — the agent never sees it.
+
+This is why the `client_id`/`client_secret` in ATH config are for your OAuth server, not for the agent. The agent gets its own separate `client_id`/`client_secret` during ATH registration.
+</Accordion>
+
+### How the Proxy Connects to Your API
+
+The proxy endpoint (`/ath/proxy/your-app/*`) sits in front of your existing API. When an agent makes a request:
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 Agent
+    participant Proxy as ATH Proxy
+    participant YourAPI as Your API
+
+    Agent->>Proxy: GET /ath/proxy/your-app/api/products<br/>Authorization: Bearer ath_tk_...
+    Proxy->>Proxy: 1. Validate ATH token (not expired, not revoked)
+    Proxy->>Proxy: 2. Check requested path is within granted scopes
+    Proxy->>Proxy: 3. Look up stored OAuth token for this user
+    Proxy->>YourAPI: GET /api/products<br/>Authorization: Bearer oauth_token_...
+    YourAPI-->>Proxy: Products data
+    Proxy-->>Agent: Products data
+```
+
+The proxy **swaps the ATH token for the stored OAuth token** before forwarding to your API. Your existing API auth middleware sees a valid OAuth token and works normally — it doesn't know an agent is involved.
+
+This means:
+- Your API routes **don't change at all**
+- Your existing auth middleware **keeps working**
+- The agent **never sees** the user's OAuth token
+
 ---
 
 ## Step 6: Test It
