@@ -38,7 +38,7 @@ SITE_DIR = Path(os.environ.get("SITE_DIR", "_site"))
 BASE_PATH = os.environ.get("BASE_PATH", "")  # e.g. "/docs"
 MARKER = "<!-- optimize-site -->"
 
-SW_CACHE_VERSION = "ath-devdocs-v1"
+SW_CACHE_VERSION = "ath-devdocs-v2"
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +62,7 @@ def rewrite_html_paths(html: str, base: str) -> str:
             part = part.replace(':HL[\\"/', f':HL[\\"{base}/')
             part = part.replace(':HS[\\"/', f':HS[\\"{base}/')
             part = part.replace('\\"p\\":\\"\\",', f'\\"p\\":\\"{base}\\",')
+            part = part.replace('\\"/_next/', f'\\"{base}/_next/')
             part = part.replace(f"{base}{base}", base)
             result_parts.append(part)
         else:
@@ -112,7 +113,7 @@ def patch_nextjs_basepath(js: str, base: str) -> str:
     )
 
     js = re.sub(
-        r'(function (\w+)\(e\)\{return e\})(Object\.defineProperty\(t,"__esModule".*?"removeBasePath",\{enumerable:!0,get:function\(\)\{return \2\}\})',
+        r'(function (\w+)\(e\)\{return e\})(Object\.defineProperty\(\w+,"__esModule".*?"removeBasePath",\{enumerable:!0,get:function\(\)\{return \2\}\})',
         lambda m: m.group(0).replace(
             m.group(1),
             f'function {m.group(2)}(e){{return e.startsWith("{base}")?e.slice({len(base)})||"/":e}}',
