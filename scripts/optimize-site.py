@@ -63,6 +63,9 @@ def rewrite_html_paths(html: str, base: str) -> str:
             part = part.replace(':HS[\\"/', f':HS[\\"{base}/')
             part = part.replace('\\"p\\":\\"\\",', f'\\"p\\":\\"{base}\\",')
             part = part.replace('\\"/_next/', f'\\"{base}/_next/')
+            for attr in ("href", "src", "content"):
+                part = part.replace(f'\\"{attr}\\":\\"/'.encode().decode(),
+                                    f'\\"{attr}\\":\\"{base}/'.encode().decode())
             part = part.replace(f"{base}{base}", base)
             result_parts.append(part)
         else:
