@@ -1,0 +1,126 @@
+---
+title: "Gateway Setup"
+description: "Install and run the ATH reference gateway."
+---
+
+## Quick Start
+
+### Clone and Install
+
+```bash
+git clone https://github.com/ath-protocol/gateway.git
+cd gateway
+git submodule update --init --recursive
+npm install
+```
+
+<Note>
+  The gateway uses `@ath-protocol/server` and `@ath-protocol/types` from a git submodule in `vendor/ath-sdk`. The `preinstall` script patches the SDK for direct TypeScript consumption.
+</Note>
+
+### Start in Mock Mode
+
+For quick testing without real OAuth providers:
+
+```bash
+npm run dev
+```
+
+When no providers are configured, the gateway runs in **mock mode** — it simulates OAuth consent flows so you can test the full ATH handshake end-to-end.
+
+### Start with a Real Provider
+
+```bash
+export OAUTH_BASE_URL="https://github.com/login/oauth"
+export OAUTH_CLIENT_ID="your-github-oauth-app-client-id"
+export OAUTH_CLIENT_SECRET="your-github-oauth-app-client-secret"
+export ATH_SIGNUP_ENABLED=true
+
+npm run dev
+```
+
+Visit `http://localhost:3000` to see the gateway dashboard.
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ATH_PORT` | `3000` | Listen port |
+| `ATH_HOST` | `0.0.0.0` | Bind address |
+| `ATH_GATEWAY_HOST` | `http://localhost:3000` | Public URL (used for OAuth callbacks, discovery) |
+| `ATH_PUBLIC_GATEWAY_URL` | same as host | URL used as `aud` for attestation verification |
+| `ATH_JWT_SECRET` | random | Secret for session JWT signing |
+| `ATH_SIGNUP_ENABLED` | `false` | Whether `POST /auth/signup` is open |
+| `ATH_TOKEN_EXPIRY` | `3600` | ATH token lifetime in seconds |
+| `ATH_SESSION_EXPIRY` | `600` | OAuth session lifetime in seconds |
+| `ATH_CONFIG_DIR` | `cwd` | Directory for `providers.json` |
+
+### Provider Configuration
+
+Providers can be configured three ways:
+
+<Tabs>
+  <Tab title="providers.json">
+    Create `providers.json` in the gateway's working directory:
+
+    ```json
+    {
+      "github": {
+        "display_name": "GitHub",
+        "available_scopes": ["read:user", "repo", "gist"],
+        "authorize_endpoint": "https://github.com/login/oauth/authorize",
+        "token_endpoint": "https://github.com/login/oauth/access_token",
+        "api_base_url": "https://api.github.com",
+        "client_id": "your-github-client-id",
+        "client_secret": "your-github-client-secret"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="ATH_PROVIDERS env var">
+    Pass the same JSON as an environment variable:
+
+    ```bash
+    export ATH_PROVIDERS='{"github":{"display_name":"GitHub",...}}'
+    ```
+  </Tab>
+  <Tab title="Legacy single provider">
+    For a single provider:
+
+    ```bash
+    export OAUTH_BASE_URL="https://github.com/login/oauth"
+    export OAUTH_CLIENT_ID="your-client-id"
+    export OAUTH_CLIENT_SECRET="your-client-secret"
+    ```
+  </Tab>
+</Tabs>
+
+### Admin Setup
+
+On first boot (empty user store), the gateway creates a **root admin** user. Username: `root`, password: printed to console on first start.
+
+## Testing
+
+### With athx CLI
+
+```bash
+npm install -g athx
+athx config init
+athx config set-gateway local http://localhost:3000
+athx discover -g local
+athx register -g local --provider github --scopes read:user,repo
+athx authorize -g local --provider github --scopes read:user
+```
+
+### With curl
+
+```bash
+curl http://localhost:3000/health
+curl http://localhost:3000/.well-known/ath.json | jq
+```
+
+<Card title="Next: Provider Cookbook" icon="arrow-right" href="/gateway/provider-cookbook">
+  Step-by-step guides for configuring specific providers
+</Card>

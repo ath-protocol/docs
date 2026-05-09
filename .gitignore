@@ -1,10 +1,4 @@
 node_modules/
 .mintlify/
 _site/
-
-# Cloned reference repos (not part of docs)
-agent-trust-handshake-protocol/
-athx/
-typescript-sdk/
-python-sdk/
-gateway/
+export.zip
