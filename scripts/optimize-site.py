@@ -46,8 +46,52 @@ SW_CACHE_VERSION = "ath-devdocs-v2"
 # ---------------------------------------------------------------------------
 
 
+def rewrite_rsc_flight_data(html: str, base: str) -> str:
+    """Rewrite paths in RSC flight data treating chunked pushes as a stream.
+
+    Mintlify/Next.js splits RSC flight data across multiple <script> tags.
+    Paths like /_next/... can be split at arbitrary points across chunk
+    boundaries, making per-script-tag rewrites miss them.  This function
+    concatenates the RSC stream content, rewrites all paths in the joined
+    string, then writes it back as a single consolidated script tag.
+    """
+    rsc_tag_re = re.compile(
+        r'<script>self\.__next_f\.push\(\[1,"(.*?)"\]\)</script>',
+        re.DOTALL,
+    )
+
+    tags = list(rsc_tag_re.finditer(html))
+    if not tags:
+        return html
+
+    joined = "".join(m.group(1) for m in tags)
+
+    joined = joined.replace('\\"/_next/', f'\\"{base}/_next/')
+    joined = joined.replace(':HL[\\"/', f':HL[\\"{base}/')
+    joined = joined.replace(':HS[\\"/', f':HS[\\"{base}/')
+    joined = joined.replace('\\"p\\":\\"\\",', f'\\"p\\":\\"{base}\\",')
+    for attr in ("href", "src", "content", "light", "dark", "icon"):
+        joined = joined.replace(
+            f'\\"{attr}\\":\\"/'.encode().decode(),
+            f'\\"{attr}\\":\\"{base}/'.encode().decode(),
+        )
+    joined = joined.replace(f"{base}{base}", base)
+
+    merged_tag = f'<script>self.__next_f.push([1,"{joined}"])</script>'
+
+    result = html[: tags[0].start()] + merged_tag + html[tags[-1].end():]
+    return result
+
+
 def rewrite_html_paths(html: str, base: str) -> str:
     """Rewrite root-relative paths in HTML for subpath hosting."""
+    html = rewrite_rsc_flight_data(html, base)
+
+    html = html.replace(
+        '!function(){var b="";',
+        f'!function(){{var b="{base}";',
+    )
+
     parts = re.split(r"(<script[^>]*>.*?</script>)", html, flags=re.DOTALL)
 
     result_parts: list[str] = []
