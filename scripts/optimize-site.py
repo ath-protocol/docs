@@ -70,7 +70,7 @@ def rewrite_rsc_flight_data(html: str, base: str) -> str:
     joined = joined.replace(':HL[\\"/', f':HL[\\"{base}/')
     joined = joined.replace(':HS[\\"/', f':HS[\\"{base}/')
     joined = joined.replace('\\"p\\":\\"\\",', f'\\"p\\":\\"{base}\\",')
-    for attr in ("href", "src", "content", "light", "dark", "icon"):
+    for attr in ("src", "content", "light", "dark", "icon"):
         joined = joined.replace(
             f'\\"{attr}\\":\\"/'.encode().decode(),
             f'\\"{attr}\\":\\"{base}/'.encode().decode(),
@@ -97,19 +97,21 @@ def rewrite_html_paths(html: str, base: str) -> str:
     result_parts: list[str] = []
     for part in parts:
         if part.startswith("<script"):
+            is_rsc = "self.__next_f" in part
             part = re.sub(r'(<script[^>]*\s(?:src|href))="/', rf'\1="{base}/', part)
             part = re.sub(
                 r'(<link[^>]*\s(?:href|src))="/',
                 rf'\1="{base}/',
                 part,
             )
-            part = part.replace(':HL[\\"/', f':HL[\\"{base}/')
-            part = part.replace(':HS[\\"/', f':HS[\\"{base}/')
-            part = part.replace('\\"p\\":\\"\\",', f'\\"p\\":\\"{base}\\",')
-            part = part.replace('\\"/_next/', f'\\"{base}/_next/')
-            for attr in ("href", "src", "content"):
-                part = part.replace(f'\\"{attr}\\":\\"/'.encode().decode(),
-                                    f'\\"{attr}\\":\\"{base}/'.encode().decode())
+            if not is_rsc:
+                part = part.replace(':HL[\\"/', f':HL[\\"{base}/')
+                part = part.replace(':HS[\\"/', f':HS[\\"{base}/')
+                part = part.replace('\\"p\\":\\"\\",', f'\\"p\\":\\"{base}\\",')
+                part = part.replace('\\"/_next/', f'\\"{base}/_next/')
+                for attr in ("href", "src", "content"):
+                    part = part.replace(f'\\"{attr}\\":\\"/'.encode().decode(),
+                                        f'\\"{attr}\\":\\"{base}/'.encode().decode())
             part = part.replace(f"{base}{base}", base)
             result_parts.append(part)
         else:
