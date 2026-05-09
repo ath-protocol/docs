@@ -1,0 +1,167 @@
+---
+title: "Python SDK"
+description: "Complete reference for ath-sdk in Python."
+---
+
+## Install
+
+```bash
+pip install ath-sdk
+```
+
+## Quick Reference
+
+```python
+from ath import ATHGatewayClient, ATHNativeClient, AsyncATHGatewayClient, ATHError
+```
+
+| Class | Mode |
+|-------|------|
+| `ATHGatewayClient` | Sync, gateway |
+| `ATHNativeClient` | Sync, native |
+| `AsyncATHGatewayClient` | Async, gateway |
+| `AsyncATHNativeClient` | Async, native |
+
+---
+
+## Creating a Client
+
+```python
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
+
+key = ec.generate_private_key(ec.SECP256R1())
+pem = key.private_bytes(
+    serialization.Encoding.PEM,
+    serialization.PrivateFormat.PKCS8,
+    serialization.NoEncryption(),
+).decode()
+
+# Use as context manager (auto-closes HTTP connection)
+with ATHGatewayClient(
+    url="http://gateway.example.com",
+    agent_id="https://my-agent.com/.well-known/agent.json",
+    private_key=pem,
+    key_id="my-key-2024",  # optional
+    timeout=60.0,           # optional
+) as client:
+    ...
+```
+
+---
+
+## API Methods
+
+### `discover()`
+
+```python
+# Gateway
+doc = client.discover()
+for p in doc.supported_providers:
+    print(p.provider_id, p.available_scopes)
+
+# Native
+doc = client.discover()  # also sets internal api_base
+print(doc.app_id, doc.auth.scopes_supported)
+```
+
+### `register(...)`
+
+```python
+reg = client.register(
+    developer={"name": "Acme", "id": "acme"},
+    providers=[{"provider_id": "github", "scopes": ["read:user", "repo"]}],
+    purpose="Code review assistant",
+)
+print(reg.client_id, reg.agent_status)
+```
+
+### `authorize(provider, scopes, ...)`
+
+```python
+auth = client.authorize("github", ["read:user"])
+print("Send user to:", auth.authorization_url)
+print("Session:", auth.ath_session_id)
+```
+
+### `exchange_token(code, session_id)`
+
+```python
+token = client.exchange_token("auth-code", "ath_sess_...")
+print(token.access_token, token.effective_scopes)
+```
+
+### `proxy()` / `api()`
+
+```python
+# Gateway
+user = client.proxy("github", "GET", "/user")
+repos = client.proxy("github", "POST", "/user/repos", {"name": "new-repo"})
+
+# Native
+products = client.api("GET", "/products")
+order = client.api("POST", "/orders", {"shippingAddress": "..."})
+```
+
+### `revoke()`
+
+```python
+client.revoke()
+```
+
+---
+
+## Credential Persistence
+
+Save and restore credentials across sessions:
+
+```python
+# After registration — save
+client.save_credentials("creds.json")
+
+# In a later session — restore
+client.load_credentials("creds.json")
+
+# Or set manually
+client.set_credentials(client_id="ath_abc", client_secret="ath_secret_xyz")
+client.set_token("ath_tk_...")
+```
+
+---
+
+## Async Client
+
+```python
+import asyncio
+from ath import AsyncATHGatewayClient
+
+async def main():
+    async with AsyncATHGatewayClient(url=..., agent_id=..., private_key=pem) as client:
+        await client.discover()
+        await client.register(...)
+        auth = await client.authorize("github", ["read:user"])
+        token = await client.exchange_token(code, auth.ath_session_id)
+        data = await client.proxy("github", "GET", "/user")
+        await client.revoke()
+
+asyncio.run(main())
+```
+
+---
+
+## Error Handling
+
+```python
+from ath import ATHError
+
+try:
+    data = client.proxy("github", "GET", "/user")
+except ATHError as e:
+    print(f"[{e.code}] {e.message}")
+    if e.code == "TOKEN_EXPIRED":
+        # re-authorize
+        pass
+    elif e.code == "NOT_REGISTERED":
+        # register first
+        pass
+```

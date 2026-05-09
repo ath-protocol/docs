@@ -1,0 +1,23 @@
+---
+title: "Glossary"
+description: "Quick definitions of ATH terms."
+---
+
+| Term | Definition |
+|------|-----------|
+| **Agent** | AI software that calls APIs on behalf of a user |
+| **Agent attestation** | Signed JWT proving the agent's identity |
+| **`agent_id`** | URL where the agent publishes its identity document |
+| **ATH token** | Opaque access token issued by ATH server, scoped and time-limited |
+| **`ath_session_id`** | Temporary ID tracking an in-progress authorization (10-min TTL, single-use) |
+| **`client_id` / `client_secret`** | Credentials issued to agent at registration |
+| **Discovery document** | JSON at `.well-known/ath-app.json` or `.well-known/ath.json` |
+| **Effective scopes** | The permissions actually granted (= intersection of approved ∩ consented ∩ requested) |
+| **Gateway** | A trust broker between agents and upstream OAuth services |
+| **Native mode** | Service implements ATH endpoints directly |
+| **Phase A** | Service-side approval of an agent (registration) |
+| **Phase B** | User-side consent (OAuth authorization) |
+| **PKCE** | Proof Key for Code Exchange — prevents OAuth code interception (required by ATH) |
+| **Provider** | An upstream service accessible through a gateway (e.g., GitHub, Google) |
+| **Proxy** | Gateway endpoint that forwards agent requests to upstream using stored OAuth tokens |
+| **Scope intersection** | `Effective = Agent-Approved ∩ User-Consented ∩ Requested` |

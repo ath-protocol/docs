@@ -1,0 +1,155 @@
+---
+title: "Add Providers"
+description: "Configure GitHub, Google, Slack, or any OAuth provider in your gateway."
+---
+
+## providers.json Format
+
+Each provider needs 6 fields:
+
+```json
+{
+  "provider-id": {
+    "display_name": "Human-readable name",
+    "available_scopes": ["scope1", "scope2"],
+    "authorize_endpoint": "https://provider.com/oauth/authorize",
+    "token_endpoint": "https://provider.com/oauth/token",
+    "api_base_url": "https://api.provider.com",
+    "client_id": "your-oauth-client-id",
+    "client_secret": "your-oauth-client-secret"
+  }
+}
+```
+
+The `provider-id` is what agents use in their requests (e.g., `athx proxy github GET /user`).
+
+---
+
+## GitHub
+
+1. Go to [GitHub → Settings → Developer settings → OAuth Apps → New](https://github.com/settings/developers)
+2. Set **Authorization callback URL** to `http://YOUR_GATEWAY/ath/callback`
+
+```json
+{
+  "github": {
+    "display_name": "GitHub",
+    "available_scopes": ["read:user", "repo", "gist", "read:org"],
+    "authorize_endpoint": "https://github.com/login/oauth/authorize",
+    "token_endpoint": "https://github.com/login/oauth/access_token",
+    "api_base_url": "https://api.github.com",
+    "client_id": "Iv1.abc123",
+    "client_secret": "secret_xyz"
+  }
+}
+```
+
+**Test:** `athx proxy github GET /user`
+
+---
+
+## Google (Calendar, Gmail, etc.)
+
+1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Create **OAuth 2.0 Client ID** → Web application
+3. Add redirect URI: `http://YOUR_GATEWAY/ath/callback`
+4. Enable the APIs you need (Calendar API, Gmail API, etc.)
+
+```json
+{
+  "google-calendar": {
+    "display_name": "Google Calendar",
+    "available_scopes": [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar.events"
+    ],
+    "authorize_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+    "token_endpoint": "https://oauth2.googleapis.com/token",
+    "api_base_url": "https://www.googleapis.com/calendar/v3",
+    "client_id": "123456.apps.googleusercontent.com",
+    "client_secret": "GOCSPX-secret"
+  }
+}
+```
+
+**Test:** `athx proxy google-calendar GET /calendars/primary/events`
+
+---
+
+## Slack
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App
+2. Under **OAuth & Permissions**, add redirect URL: `http://YOUR_GATEWAY/ath/callback`
+
+```json
+{
+  "slack": {
+    "display_name": "Slack",
+    "available_scopes": ["channels:read", "chat:write", "users:read"],
+    "authorize_endpoint": "https://slack.com/oauth/v2/authorize",
+    "token_endpoint": "https://slack.com/api/oauth.v2.access",
+    "api_base_url": "https://slack.com/api",
+    "client_id": "123.456",
+    "client_secret": "abc123"
+  }
+}
+```
+
+---
+
+## Any OAuth 2.0 Provider
+
+If the service supports standard OAuth 2.0 Authorization Code flow:
+
+```json
+{
+  "my-service": {
+    "display_name": "My Internal Service",
+    "available_scopes": ["read", "write"],
+    "authorize_endpoint": "https://my-service.com/oauth/authorize",
+    "token_endpoint": "https://my-service.com/oauth/token",
+    "api_base_url": "https://api.my-service.com/v1",
+    "client_id": "client-id",
+    "client_secret": "client-secret"
+  }
+}
+```
+
+**Requirements:** The provider must support Authorization Code grant. PKCE support is preferred but the gateway handles the PKCE challenge itself.
+
+---
+
+## Multiple Providers
+
+Just add them all to the same `providers.json`:
+
+```json
+{
+  "github": { ... },
+  "google-calendar": { ... },
+  "slack": { ... }
+}
+```
+
+Agents can then discover all providers and register for whichever they need. Each provider is independent — an agent can have a token for GitHub without having one for Slack.
+
+---
+
+## Adding Providers at Runtime
+
+You can also add providers via the admin API:
+
+```bash
+curl -X POST http://localhost:4001/ath/admin/providers \
+  -H "X-ATH-User-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider_id": "github",
+    "display_name": "GitHub",
+    "available_scopes": ["read:user", "repo"],
+    "authorize_endpoint": "https://github.com/login/oauth/authorize",
+    "token_endpoint": "https://github.com/login/oauth/access_token",
+    "client_id": "...",
+    "client_secret": "..."
+  }'
+```

@@ -1,0 +1,113 @@
+---
+title: "Integrating with Existing OAuth"
+description: "If you already have Auth0, Clerk, or a custom OAuth server — here's how to connect ATH."
+---
+
+## You Already Have OAuth. Now What?
+
+If you use Auth0, Clerk, Firebase Auth, or your own OAuth server, you don't need to build a new one. You just **point ATH's config at your existing endpoints**.
+
+---
+
+## The One Config Change
+
+In your `createATHHandlers` config, the `oauth` section tells ATH where to send users for consent:
+
+```typescript
+const handlers = createATHHandlers({
+  // ... other config ...
+  config: {
+    // ...
+    oauth: {
+      authorize_endpoint: "https://your-auth-provider.com/authorize",
+      token_endpoint: "https://your-auth-provider.com/oauth/token",
+      client_id: "your-ath-client-id",      // registered with your OAuth provider
+      client_secret: "your-ath-client-secret",
+    },
+  },
+});
+```
+
+### What ATH Does With Your OAuth
+
+1. When an agent calls `/ath/authorize`, ATH builds a redirect URL to **your OAuth authorize endpoint** (with PKCE)
+2. Your OAuth server shows the consent screen to the user
+3. After consent, your OAuth server redirects to `/ath/callback` with an authorization code
+4. ATH exchanges that code at **your token endpoint** (server-side, with PKCE verifier)
+5. ATH stores the resulting token internally — the agent never sees it
+
+---
+
+## Setup Per Provider
+
+<Tabs>
+  <Tab title="Auth0">
+    1. Create a "Regular Web Application" in Auth0 dashboard
+    2. Set **Allowed Callback URL** to `https://your-app.com/ath/callback`
+    3. Note the Client ID and Client Secret
+    4. Use these in your ATH config:
+
+    ```typescript
+    oauth: {
+      authorize_endpoint: "https://YOUR_DOMAIN.auth0.com/authorize",
+      token_endpoint: "https://YOUR_DOMAIN.auth0.com/oauth/token",
+      client_id: "YOUR_AUTH0_CLIENT_ID",
+      client_secret: "YOUR_AUTH0_CLIENT_SECRET",
+    }
+    ```
+  </Tab>
+  <Tab title="Clerk">
+    1. In Clerk dashboard, go to **JWT Templates** or use the OAuth endpoints
+    2. Set redirect URL to `https://your-app.com/ath/callback`
+    3. Configure:
+
+    ```typescript
+    oauth: {
+      authorize_endpoint: "https://YOUR_CLERK_DOMAIN/oauth/authorize",
+      token_endpoint: "https://YOUR_CLERK_DOMAIN/oauth/token",
+      client_id: "YOUR_CLERK_CLIENT_ID",
+      client_secret: "YOUR_CLERK_CLIENT_SECRET",
+    }
+    ```
+  </Tab>
+  <Tab title="Custom OAuth">
+    If you built your own OAuth server (like the demo does):
+
+    ```typescript
+    oauth: {
+      authorize_endpoint: "https://your-app.com/oauth/authorize",
+      token_endpoint: "https://your-app.com/oauth/token",
+      client_id: "ath-internal-client",
+      client_secret: "ath-internal-secret",
+    }
+    ```
+    
+    Make sure your OAuth server:
+    - Supports **Authorization Code** grant with **PKCE (S256)**
+    - Has `https://your-app.com/ath/callback` in allowed redirect URIs
+  </Tab>
+</Tabs>
+
+---
+
+## Requirements for Your OAuth Server
+
+ATH needs your OAuth server to support:
+
+| Feature | Required? | Why |
+|---------|:---------:|-----|
+| Authorization Code grant | ✅ | Core flow |
+| PKCE (S256) | ✅ | Security — prevents code interception |
+| Custom scopes | Recommended | So users see meaningful permissions on consent screen |
+| Token endpoint returns JSON | ✅ | ATH parses the response |
+
+Most modern OAuth providers (Auth0, Clerk, Keycloak, etc.) support all of these out of the box.
+
+---
+
+## What if My OAuth Doesn't Support PKCE?
+
+Older OAuth servers might not support PKCE. In that case, you have two options:
+
+1. **Upgrade your OAuth server** — most have PKCE support as a toggle
+2. **Use the ATH Gateway instead** — put a gateway in front of your service, and the gateway handles PKCE with its own OAuth client. See [Set Up a Gateway](/setup-gateway/tutorial).
