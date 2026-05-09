@@ -1,56 +1,94 @@
 ---
 title: "Tutorial: Set Up a Gateway"
-description: "Deploy an ATH gateway to put a trust layer in front of existing OAuth services — zero changes to the upstream service."
+description: "Deploy an ATH gateway so agents can access existing services (GitHub, Google, your APIs) without modifying those services."
 ---
 
-A gateway lets you protect **existing services** (GitHub, Google, Slack, your internal APIs) with ATH — without modifying those services at all. The agent talks ATH to the gateway, the gateway talks standard OAuth to the service.
+## What We're Building
+
+A gateway that sits between agents and existing services. Agents talk ATH to the gateway; the gateway talks standard OAuth to the upstream services. **The upstream services don't need any changes.**
 
 ```mermaid
 graph LR
-    Agent["🤖 Agent"] -->|"ATH Protocol"| GW["🛡️ ATH Gateway"]
-    GW -->|"Standard OAuth"| GitHub["GitHub API"]
-    GW -->|"Standard OAuth"| Google["Google API"]
-    GW -->|"Standard OAuth"| Shop["Your App"]
+    Agent["🤖 Agent<br/>(can be localhost)"] -->|"ATH protocol"| GW["🛡️ ATH Gateway<br/>(has a reachable URL)"]
+    GW -->|"Standard OAuth"| GitHub["GitHub"]
+    GW -->|"Standard OAuth"| Google["Google"]
+    GW -->|"Standard OAuth"| YourApp["Your App"]
+    Browser["👤 User's Browser"] -->|"consent redirect"| GW
 ```
 
 ---
 
-## See It Working First
+## Before You Start
 
-The demo includes a working gateway setup:
+### What you need
 
-```bash
-git clone https://github.com/ath-protocol/demo.git
-cd demo/demo/gateway
-docker compose up --build
+| Requirement | Why you need it | Details |
+|-------------|----------------|---------|
+| **A reachable URL for the gateway** | After the user approves on (e.g.) GitHub's consent screen, GitHub redirects the user's browser to `https://your-gateway.com/ath/callback`. GitHub must be able to reach this URL. | For local dev: `http://localhost:4001` works if you register it as the callback URL with the provider. For production: a public URL. |
+| **OAuth credentials for each provider** | The gateway acts as an OAuth client with each provider. You register an "app" with the provider and get a client ID + secret. | You do this on the provider's developer dashboard — e.g., GitHub's "OAuth Apps" settings. See Step 3 below. |
+
+<Accordion title="Why does the gateway need to be reachable?">
+Here's what happens during user consent:
+
+```mermaid
+sequenceDiagram
+    participant Browser as 👤 User's Browser
+    participant GitHub as 📦 GitHub
+    participant GW as 🛡️ Gateway
+
+    Browser->>GitHub: User approves on GitHub's consent screen
+    GitHub->>Browser: "Redirect to https://your-gateway.com/ath/callback?code=..."
+    Browser->>GW: GET /ath/callback?code=...
+    GW->>GitHub: Exchange code for GitHub token (server-side)
 ```
 
-This starts:
-- **ATH Shop** at `https://ath-shop.local:3000`
-- **ATH Gateway** at `http://gateway.ath.local:4001`
-- The gateway is configured to proxy access to the shop
+After the user clicks "Approve" on GitHub, **GitHub tells the user's browser** to go to the callback URL. If the browser can't reach that URL, the flow breaks.
 
-Then run the agent demo:
-```bash
-docker compose up athx-demo
+- **Local dev:** `http://localhost:4001` works because the browser is on the same machine
+- **Production:** The gateway needs a URL reachable from the user's browser (doesn't need to be reachable from GitHub's servers — it's a browser redirect, not a server-to-server call)
+</Accordion>
+
+### What you don't need
+
+- ❌ Changes to the upstream service — that's the whole point of a gateway
+- ❌ A public URL for the **agent** — the agent connects outward to the gateway. No inbound connections to the agent.
+- ❌ An identity document for the agent (in development) — the gateway's `skipAttestationVerification` means the gateway won't try to fetch the agent's public key
+- ❌ Deep OAuth or security knowledge — you fill in 6 fields per provider and the gateway handles everything else
+
+### When to use a gateway (vs native mode)
+
+```mermaid
+graph TD
+    Q1["Can you modify the service's backend?"]
+    Q1 -->|"No (GitHub, Google, etc.)"| GW["✅ Use a Gateway"]
+    Q1 -->|"Yes (my own app)"| Q2["Does your agent have a reachable identity URL?"]
+    Q2 -->|"Yes"| Native["Either works — native gives more control"]
+    Q2 -->|"No (agent is on localhost)"| GW
 ```
 
-You'll see the agent discover, register, authorize, and call the shop — all through the gateway.
+<Accordion title="Why does the agent not need a public URL in gateway mode?">
+In native mode, the server fetches the agent's identity document from the `agent_id` URL to verify the agent's public key. This requires the URL to be reachable from the server.
+
+In gateway mode with `skipAttestationVerification: true` (development), the gateway doesn't fetch the identity document at all. In production, you'd configure the gateway to trust specific agents through its registry — the gateway still verifies agent attestation JWTs, but you can configure key resolution without requiring the agent to host a public URL.
+
+**Bottom line:** If you're building an agent on your laptop and can't expose a public URL, gateway mode is the easiest path.
+</Accordion>
 
 ---
 
-## Set Up Your Own Gateway
+## Step 1: Run the Gateway
 
-### Option 1: Use the Reference Gateway
+### Option A: From source
 
 ```bash
 git clone https://github.com/ath-protocol/gateway.git
 cd gateway
 git submodule update --init --recursive
 npm install
+ATH_SIGNUP_ENABLED=true npm run dev
 ```
 
-### Option 2: Docker
+### Option B: Docker
 
 ```bash
 docker run -p 4001:3000 \
@@ -59,11 +97,27 @@ docker run -p 4001:3000 \
   ghcr.io/ath-protocol/gateway:latest
 ```
 
+The gateway is now running at `http://localhost:4001`.
+
 ---
 
-## Configure a Provider
+## Step 2: Create a Gateway User
 
-Create `providers.json` in the gateway directory:
+The gateway is multi-tenant — each user has their own isolated agent registrations. Create an admin user:
+
+```bash
+curl -X POST http://localhost:4001/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-secure-password"}'
+```
+
+Save the `token` from the response — you'll need it for admin operations.
+
+---
+
+## Step 3: Add a Provider
+
+Create `providers.json` in the gateway directory with your OAuth provider's details:
 
 ```json
 {
@@ -79,51 +133,62 @@ Create `providers.json` in the gateway directory:
 }
 ```
 
-<Accordion title="How do I get GitHub OAuth credentials?">
-1. Go to GitHub → Settings → Developer settings → OAuth Apps → New
-2. Set **Authorization callback URL** to `http://localhost:4001/ath/callback`
-3. Copy the Client ID and generate a Client Secret
+<Accordion title="Where do these 6 fields come from?">
+
+| Field | Where to find it |
+|-------|-----------------|
+| `display_name` | Whatever you want to call it |
+| `available_scopes` | The provider's documentation (e.g., [GitHub scopes](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps)) |
+| `authorize_endpoint` | Provider's OAuth docs — the URL users are sent to for consent |
+| `token_endpoint` | Provider's OAuth docs — where codes are exchanged for tokens |
+| `api_base_url` | The root URL of the provider's API |
+| `client_id` / `client_secret` | Created when you register an OAuth app with the provider |
 </Accordion>
 
-Start the gateway:
-```bash
-ATH_SIGNUP_ENABLED=true npm run dev
-```
+<Accordion title="How do I register an OAuth app with GitHub?">
+1. Go to GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**
+2. Set **Application name** to anything (e.g., "ATH Gateway")
+3. Set **Homepage URL** to your gateway URL (e.g., `http://localhost:4001`)
+4. Set **Authorization callback URL** to your gateway's callback: `http://localhost:4001/ath/callback`
+   
+   ⚠️ **This must exactly match.** After the user approves on GitHub, GitHub tells the user's browser to redirect to this URL. If it doesn't match what the gateway sends, GitHub rejects the redirect and you'll see a "redirect_uri mismatch" error.
+
+5. Click **Register application**
+6. Copy the **Client ID** and click **Generate a client secret**
+7. Put both values in your `providers.json`
+
+The same process applies to any OAuth provider — register an app, set the callback URL to `https://your-gateway.com/ath/callback`, and copy the credentials.
+</Accordion>
+
+Restart the gateway to load the new provider.
 
 ---
 
-## Test With athx
+## Step 4: Test the Full Flow
 
 ```bash
-# Create a gateway user
-curl -X POST http://localhost:4001/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
-
-# Save the token
-TOKEN="<token from response>"
-
-# Discover what's available
+# Discover available providers
 athx discover --gateway http://localhost:4001
 
 # Register an agent
 athx register --gateway http://localhost:4001 \
   --provider github --scopes "read:user,repo"
 
-# Start authorization  
+# Start authorization
 athx authorize --gateway http://localhost:4001 \
   --provider github --scopes "read:user"
-# → Open the URL in your browser, approve on GitHub
+# → Open the authorization_url in your browser
+# → Log in to GitHub, click "Authorize"
 
-# Exchange for token
+# Exchange for token (after user approves)
 athx token --gateway http://localhost:4001 \
-  --code <from callback> --session <session_id>
+  --code CODE_FROM_CALLBACK --session SESSION_ID
 
 # Call GitHub API through the gateway
 athx proxy github GET /user --gateway http://localhost:4001
 ```
 
-The agent called GitHub's API — but never saw the GitHub OAuth token. The gateway handled that securely.
+The agent called GitHub's API — but it **never saw the GitHub OAuth token**. The gateway held it securely and used it to proxy the request.
 
 ---
 
@@ -137,10 +202,10 @@ sequenceDiagram
 
     Note over GW: Gateway is registered as<br/>an OAuth App with GitHub
 
-    Agent->>GW: Register + Authorize (ATH)
-    GW->>GitHub: Standard OAuth (PKCE)
-    GitHub-->>GW: GitHub access token (stored)
-    GW-->>Agent: ATH token (opaque)
+    Agent->>GW: Register + Authorize (ATH protocol)
+    GW->>GitHub: Standard OAuth with PKCE
+    GitHub-->>GW: GitHub access token (stored by gateway)
+    GW-->>Agent: ATH token (opaque — agent can't decode it)
 
     Agent->>GW: GET /ath/proxy/github/user
     GW->>GW: Validate ATH token
@@ -149,8 +214,25 @@ sequenceDiagram
     GW-->>Agent: User data
 ```
 
-The agent **never** touches the GitHub token. It only holds an ATH token that the gateway issued.
+**Key security property:** The upstream provider token (GitHub's OAuth token) **never leaves the gateway**. The agent only holds an opaque ATH token that the gateway issued.
 
-<Card title="Add more providers →" icon="plus" href="/setup-gateway/add-providers">
-  Configure GitHub, Google, Slack, and custom OAuth providers
-</Card>
+---
+
+## Try It With the Demo
+
+The [ATH Demo](https://github.com/ath-protocol/demo) includes a pre-configured gateway setup. To see gateway mode in action with a real e-commerce app:
+
+```bash
+git clone https://github.com/ath-protocol/demo.git
+cd demo/demo/gateway
+docker compose up --build
+# In another terminal:
+docker compose up athx-demo
+```
+
+---
+
+## Next Steps
+
+- [Add more providers](/setup-gateway/add-providers) — GitHub, Google, Slack, and custom OAuth providers
+- [Production deployment](/setup-gateway/production) — what to change before going live

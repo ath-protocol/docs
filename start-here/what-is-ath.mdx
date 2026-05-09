@@ -30,32 +30,32 @@ That's it. Two gates, both must pass. The agent gets the **intersection** of wha
 
 ## Who Are You?
 
-Pick the path that matches your situation:
+Pick the path that matches your situation. Each is a self-contained tutorial.
 
-<CardGroup cols={3}>
-  <Card title="I have an app" icon="server" href="/add-ath-to-your-app/tutorial">
-    **"I want AI agents to access my API securely."**
-    
+<Steps>
+  <Step title="I have an app and want agents to access my API securely">
     You'll add ATH endpoints to your existing backend. Takes ~100 lines of code.
-  </Card>
-  <Card title="I manage infrastructure" icon="shield-halved" href="/setup-gateway/tutorial">
-    **"I want to put a trust layer in front of existing services like GitHub or Google."**
     
+    [Go to: Add ATH to Your App →](/add-ath-to-your-app/tutorial)
+  </Step>
+  <Step title="I want to put a trust layer in front of existing services (GitHub, Google, etc.)">
     You'll deploy a gateway. Zero changes to upstream services.
-  </Card>
-  <Card title="I'm building an agent" icon="robot" href="/build-an-agent/tutorial">
-    **"My agent needs to call APIs that are protected by ATH."**
     
+    [Go to: Set Up a Gateway →](/setup-gateway/tutorial)
+  </Step>
+  <Step title="I'm building an agent that needs to call ATH-protected APIs">
     You'll use our SDK (TypeScript/Python) or CLI tool.
-  </Card>
-</CardGroup>
+    
+    [Go to: Build an Agent →](/build-an-agent/tutorial)
+  </Step>
+</Steps>
 
 ---
 
-## But First: See It Running
+## But First
 
-Before diving into any path, **run the demo** to see the entire protocol in action. It takes 5 minutes and you'll understand everything much faster.
+Before diving into any path, we recommend two things:
 
-<Card title="Run the Demo →" icon="play" href="/start-here/run-the-demo">
-  A real e-commerce app where an AI agent browses products, adds to cart, and places orders — all with user consent.
-</Card>
+1. **[Learn the basics of JWT & OAuth](/start-here/jwt-and-oauth-basics)** — if you're not already familiar, this 10-minute read explains the two technologies ATH builds on, with real-world examples.
+
+2. **[Run the demo](/start-here/run-the-demo)** — 5 minutes to see the entire protocol working in a real e-commerce app. You'll understand everything much faster.

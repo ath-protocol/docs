@@ -33,7 +33,7 @@ const { privateKey } = await generateKeyPair("ES256");
 // Gateway mode
 const gateway = new ATHGatewayClient({
   url: "http://gateway.example.com",
-  agentId: "https://my-agent.com/.well-known/agent.json",
+  agentId: "https://your-agent.com/.well-known/agent.json",
   privateKey,
   keyId: "my-key-2024",  // optional, default: "default"
 });
@@ -41,7 +41,7 @@ const gateway = new ATHGatewayClient({
 // Native mode
 const native = new ATHNativeClient({
   url: "https://service.example.com",
-  agentId: "https://my-agent.com/.well-known/agent.json",
+  agentId: "https://your-agent.com/.well-known/agent.json",
   privateKey,
 });
 ```
@@ -76,7 +76,7 @@ const reg = await client.register({
     { provider_id: "github", scopes: ["read:user", "repo"] },
   ],
   purpose: "Code review assistant",
-  redirectUris: ["https://my-agent.com/callback"],  // optional
+  redirectUris: ["https://your-agent.com/callback"],  // optional
 });
 
 console.log(reg.client_id);        // "ath_abc123"
@@ -88,7 +88,7 @@ console.log(reg.approved_providers[0].approved_scopes);
 
 ```typescript
 const auth = await client.authorize("github", ["read:user"], {
-  redirectUri: "https://my-agent.com/done",  // optional
+  redirectUri: "https://your-agent.com/done",  // optional
   resource: "https://api.github.com",         // optional RFC 8707
 });
 
