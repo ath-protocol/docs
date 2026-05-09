@@ -40,7 +40,7 @@ pem = key.private_bytes(
 # Use as context manager (auto-closes HTTP connection)
 with ATHGatewayClient(
     url="http://gateway.example.com",
-    agent_id="https://my-agent.com/.well-known/agent.json",
+    agent_id="https://your-agent.com/.well-known/agent.json",
     private_key=pem,
     key_id="my-key-2024",  # optional
     timeout=60.0,           # optional

@@ -25,13 +25,35 @@ graph LR
 | Requirement | Why you need it | Details |
 |-------------|----------------|---------|
 | **A reachable URL for the gateway** | After the user approves on (e.g.) GitHub's consent screen, GitHub redirects the user's browser to `https://your-gateway.com/ath/callback`. GitHub must be able to reach this URL. | For local dev: `http://localhost:4001` works if you register it as the callback URL with the provider. For production: a public URL. |
-| **OAuth credentials for each provider** | The gateway acts as an OAuth client with each provider (GitHub, Google, etc.). You register an "app" with the provider and get a client ID + secret. | See [Add Providers](/setup-gateway/add-providers) for per-provider setup. |
+| **OAuth credentials for each provider** | The gateway acts as an OAuth client with each provider. You register an "app" with the provider and get a client ID + secret. | You do this on the provider's developer dashboard — e.g., GitHub's "OAuth Apps" settings. See Step 3 below. |
+
+<Accordion title="Why does the gateway need to be reachable?">
+Here's what happens during user consent:
+
+```mermaid
+sequenceDiagram
+    participant Browser as 👤 User's Browser
+    participant GitHub as 📦 GitHub
+    participant GW as 🛡️ Gateway
+
+    Browser->>GitHub: User approves on GitHub's consent screen
+    GitHub->>Browser: "Redirect to https://your-gateway.com/ath/callback?code=..."
+    Browser->>GW: GET /ath/callback?code=...
+    GW->>GitHub: Exchange code for GitHub token (server-side)
+```
+
+After the user clicks "Approve" on GitHub, **GitHub tells the user's browser** to go to the callback URL. If the browser can't reach that URL, the flow breaks.
+
+- **Local dev:** `http://localhost:4001` works because the browser is on the same machine
+- **Production:** The gateway needs a URL reachable from the user's browser (doesn't need to be reachable from GitHub's servers — it's a browser redirect, not a server-to-server call)
+</Accordion>
 
 ### What you don't need
 
 - ❌ Changes to the upstream service — that's the whole point of a gateway
-- ❌ A public URL for the **agent** — the agent talks to the gateway, not to the provider directly
-- ❌ Deep OAuth knowledge — you just fill in 6 fields per provider
+- ❌ A public URL for the **agent** — the agent connects outward to the gateway. No inbound connections to the agent.
+- ❌ An identity document for the agent (in development) — the gateway's `skipAttestationVerification` means the gateway won't try to fetch the agent's public key
+- ❌ Deep OAuth or security knowledge — you fill in 6 fields per provider and the gateway handles everything else
 
 ### When to use a gateway (vs native mode)
 
@@ -127,12 +149,15 @@ Create `providers.json` in the gateway directory with your OAuth provider's deta
 1. Go to GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**
 2. Set **Application name** to anything (e.g., "ATH Gateway")
 3. Set **Homepage URL** to your gateway URL (e.g., `http://localhost:4001`)
-4. Set **Authorization callback URL** to `http://localhost:4001/ath/callback`
+4. Set **Authorization callback URL** to your gateway's callback: `http://localhost:4001/ath/callback`
    
-   ⚠️ **This is critical.** After the user approves on GitHub, GitHub redirects the user's browser to this URL. It must exactly match what you configure here.
+   ⚠️ **This must exactly match.** After the user approves on GitHub, GitHub tells the user's browser to redirect to this URL. If it doesn't match what the gateway sends, GitHub rejects the redirect and you'll see a "redirect_uri mismatch" error.
 
 5. Click **Register application**
-6. Copy the **Client ID** and generate a **Client Secret**
+6. Copy the **Client ID** and click **Generate a client secret**
+7. Put both values in your `providers.json`
+
+The same process applies to any OAuth provider — register an app, set the callback URL to `https://your-gateway.com/ath/callback`, and copy the credentials.
 </Accordion>
 
 Restart the gateway to load the new provider.

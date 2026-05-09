@@ -24,12 +24,12 @@ graph LR
 
 ## Identity Document
 
-Publish this at your `agent_id` URL (e.g., `https://my-agent.com/.well-known/agent.json`):
+Publish this at your `agent_id` URL (e.g., `https://your-agent.com/.well-known/agent.json`):
 
 ```json
 {
   "ath_version": "0.1",
-  "agent_id": "https://my-agent.com/.well-known/agent.json",
+  "agent_id": "https://your-agent.com/.well-known/agent.json",
   "name": "My Agent",
   "developer": {
     "name": "Your Company",
@@ -65,8 +65,8 @@ Every time your agent calls register, authorize, or token, it includes a signed 
 ```
 Header:  { "alg": "ES256", "kid": "my-key-2024" }
 Payload: {
-  "iss": "https://my-agent.com",
-  "sub": "https://my-agent.com/.well-known/agent.json",
+  "iss": "https://your-agent.com",
+  "sub": "https://your-agent.com/.well-known/agent.json",
   "aud": "https://service.example.com",   ← who you're talking to
   "iat": 1714500000,                       ← when you signed this
   "exp": 1714503600,                       ← when this expires
