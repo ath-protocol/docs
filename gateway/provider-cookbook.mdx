@@ -1,0 +1,124 @@
+---
+title: "Provider Cookbook"
+description: "Step-by-step configuration for popular OAuth providers."
+---
+
+## GitHub
+
+### 1. Create a GitHub OAuth App
+
+1. Go to **Settings → Developer Settings → OAuth Apps → New OAuth App**
+2. Set **Authorization callback URL**: `http://localhost:3000/ath/callback`
+3. Note the **Client ID** and generate a **Client Secret**
+
+### 2. Configure
+
+```json
+{
+  "github": {
+    "display_name": "GitHub",
+    "available_scopes": ["read:user", "repo", "gist", "read:org"],
+    "authorize_endpoint": "https://github.com/login/oauth/authorize",
+    "token_endpoint": "https://github.com/login/oauth/access_token",
+    "api_base_url": "https://api.github.com",
+    "client_id": "Iv1.your_client_id",
+    "client_secret": "your_client_secret_here"
+  }
+}
+```
+
+### 3. Test
+
+```bash
+athx register -g local --provider github --scopes read:user
+athx authorize -g local --provider github --scopes read:user
+athx token -g local --code <code> --session <session_id>
+athx proxy -g local github GET /user
+```
+
+---
+
+## Google
+
+### 1. Create Google OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Credentials**
+2. Create **OAuth 2.0 Client ID** (Web application)
+3. Set redirect URI: `http://localhost:3000/ath/callback`
+
+### 2. Configure
+
+```json
+{
+  "google-calendar": {
+    "display_name": "Google Calendar",
+    "available_scopes": [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar.events"
+    ],
+    "authorize_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+    "token_endpoint": "https://oauth2.googleapis.com/token",
+    "api_base_url": "https://www.googleapis.com/calendar/v3",
+    "client_id": "your-client-id.apps.googleusercontent.com",
+    "client_secret": "GOCSPX-your-client-secret"
+  }
+}
+```
+
+---
+
+## Slack
+
+### 1. Create a Slack App
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App**
+2. Add redirect URL: `http://localhost:3000/ath/callback`
+3. Add scopes under **OAuth & Permissions**
+
+### 2. Configure
+
+```json
+{
+  "slack": {
+    "display_name": "Slack",
+    "available_scopes": ["channels:read", "chat:write", "users:read"],
+    "authorize_endpoint": "https://slack.com/oauth/v2/authorize",
+    "token_endpoint": "https://slack.com/api/oauth.v2.access",
+    "api_base_url": "https://slack.com/api",
+    "client_id": "your-slack-client-id",
+    "client_secret": "your-slack-client-secret"
+  }
+}
+```
+
+---
+
+## Custom OAuth 2.0 Provider
+
+Any standard OAuth 2.0 provider that supports Authorization Code + PKCE:
+
+```json
+{
+  "my-service": {
+    "display_name": "My Service",
+    "available_scopes": ["read", "write"],
+    "authorize_endpoint": "https://my-service.com/oauth/authorize",
+    "token_endpoint": "https://my-service.com/oauth/token",
+    "api_base_url": "https://api.my-service.com/v1",
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret"
+  }
+}
+```
+
+### Admin API
+
+Manage providers via REST:
+
+```bash
+curl -H "X-ATH-User-Token: $TOKEN" http://localhost:3000/ath/admin/providers
+curl -X POST http://localhost:3000/ath/admin/providers \
+  -H "X-ATH-User-Token: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"provider_id":"my-service","display_name":"My Service",...}'
+```

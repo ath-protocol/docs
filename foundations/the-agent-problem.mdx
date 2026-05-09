@@ -1,0 +1,183 @@
+---
+title: "The Agent Problem"
+description: "OAuth answers 'did the user consent?' — but who answers 'should this agent be allowed here at all?'"
+---
+
+## OAuth Was Built for Apps, Not Agents
+
+OAuth 2.0 was designed for a world where a **human developer** registers an app, a **human user** reviews permissions, and the app is a known, auditable piece of software.
+
+AI agents break these assumptions:
+
+```mermaid
+graph TB
+    subgraph "Traditional OAuth World"
+        Dev["👩‍💻 Developer"]-->|"registers"| App["📱 Known App"]
+        App -->|"requests consent"| User["👤 User"]
+        User -->|"grants scopes"| App
+        App -->|"calls API"| Service["🏢 Service"]
+    end
+    
+    subgraph "Agent World ⚠️"
+        AgentDev["🤖 Anyone"]-->|"spawns"| Agent["🤖 Unknown Agent"]
+        Agent -->|"requests consent"| User2["👤 User"]
+        User2 -->|"grants scopes"| Agent
+        Agent -->|"calls API"| Service2["🏢 Service"]
+    end
+```
+
+### The Missing Question
+
+OAuth answers one critical question:
+
+> ✅ **"Did the user consent to grant these permissions?"**
+
+But it does **not** answer:
+
+> ❌ **"Did the service approve this specific agent to operate here?"**
+
+### Why This Matters: An Attack Scenario
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 Alice
+    participant Agent as 🤖 Malicious Agent
+    participant OAuth as 🔐 OAuth Provider
+    participant API as 📧 Email Service
+
+    Agent->>User: "I'll help organize your inbox!"
+    Agent->>OAuth: Request broad scopes (read, write, delete)
+    OAuth->>User: "Agent wants: read, write, delete email"
+    User->>OAuth: "Allow" (trusts the agent's description)
+    OAuth->>Agent: access_token with full email access
+    
+    Note over Agent,API: The email service has no idea<br/>WHO this agent is or WHETHER<br/>it should be allowed to operate.
+    
+    Agent->>API: DELETE /emails/* (mass delete)
+    API->>Agent: 200 OK ← Service blindly trusts the token
+```
+
+The email service **cannot distinguish** between:
+- A legitimate, well-known email assistant
+- A rogue agent that obtained user consent through social engineering
+
+**The service never got to approve or deny this agent.**
+
+---
+
+## What's Missing: Two-Axis Authorization
+
+In the traditional OAuth model, authorization is **one-dimensional** — only the user decides:
+
+```mermaid
+graph LR
+    subgraph "OAuth: Single Axis"
+        UserDecision["👤 User approves?"] -->|"Yes"| Access["✅ Access Granted"]
+        UserDecision -->|"No"| Denied["❌ Access Denied"]
+    end
+```
+
+What we need for agents is **two-dimensional** — both the user AND the service must approve:
+
+```mermaid
+graph TD
+    subgraph "ATH: Two Axes"
+        direction TB
+        Check{"Both approve?"}
+        AppSide["🏢 Service approved agent?"]
+        UserSide["👤 User consented?"]
+        
+        AppSide -->|"Yes"| Check
+        UserSide -->|"Yes"| Check
+        Check -->|"Both Yes"| Granted["✅ Access Granted"]
+        
+        AppSide -->|"No"| Denied1["❌ Denied"]
+        UserSide -->|"No"| Denied2["❌ Denied"]
+    end
+```
+
+| Scenario | Service approves? | User consents? | Result |
+|----------|:-:|:-:|--------|
+| Legitimate agent, user agrees | ✅ | ✅ | **Access granted** |
+| Good agent, user declines | ✅ | ❌ | No access |
+| Unknown agent, user tricked | ❌ | ✅ | **No access** ← ATH prevents this |
+| Unknown agent, user declines | ❌ | ❌ | No access |
+
+The key insight: **Row 3 is impossible with OAuth alone**, but ATH blocks it.
+
+---
+
+## The Agent Identity Problem
+
+Beyond authorization, there's an **identity** gap. When an app registers with an OAuth provider, it gets a `client_id`. But there's no standard way to verify:
+
+- **Who** built this agent?
+- **What** is this agent supposed to do?
+- Is this the **same** agent that was approved last week, or a different one using the same name?
+
+ATH solves this with **cryptographic agent identity** — each agent has a verifiable identity document and proves it owns that identity with a signed JWT (called an **attestation**).
+
+```mermaid
+graph LR
+    Agent["🤖 Agent"] -->|"publishes"| Doc["📄 agent.json<br/>at .well-known URL"]
+    Doc -->|"contains"| PubKey["🔓 Public Key"]
+    Agent -->|"signs attestation<br/>with private key 🔐"| JWT["JWT Attestation"]
+    Server["🏢 Server"] -->|"fetches"| Doc
+    Server -->|"verifies signature<br/>using public key"| JWT
+```
+
+---
+
+## Where ATH Fits in the Stack
+
+ATH doesn't replace existing protocols — it adds a **trust layer** between the agent ecosystem and the service ecosystem:
+
+```mermaid
+graph TB
+    subgraph "Agent Layer"
+        LangChain["🔗 LangChain"]
+        Claude["🤖 Claude Code"]
+        Custom["🤖 Custom Agent"]
+    end
+    
+    subgraph "Trust Layer (ATH)"
+        ATH["🛡️ Agent Trust Handshake<br/>Agent Identity + Two-Axis Auth"]
+    end
+    
+    subgraph "Tool/Collaboration Layer"
+        MCP["🔧 MCP (Tool Calls)"]
+        A2A["🤝 A2A (Agent Collab)"]
+    end
+    
+    subgraph "Transport"
+        TLS["🔒 TLS 1.2+"]
+    end
+    
+    subgraph "Services"
+        GitHub["GitHub API"]
+        Gmail["Gmail API"]
+        Slack["Slack API"]
+    end
+    
+    LangChain --> ATH
+    Claude --> ATH
+    Custom --> ATH
+    ATH --> MCP
+    ATH --> A2A
+    MCP --> TLS
+    A2A --> TLS
+    TLS --> GitHub
+    TLS --> Gmail
+    TLS --> Slack
+```
+
+| Protocol | What it does | ATH's relationship |
+|----------|-------------|-------------------|
+| **OAuth 2.0** | User consent & delegation | ATH builds on top of OAuth |
+| **MCP** | Tool calling interface for agents | ATH secures MCP tool calls |
+| **A2A** | Agent-to-agent collaboration | ATH authenticates agents in A2A |
+| **TLS** | Encrypted transport | ATH requires TLS 1.2+ |
+
+<Card title="Next: ATH Two-Axis Trust" icon="arrow-right" href="/foundations/ath-two-axis-trust">
+  How ATH's handshake protocol works step by step
+</Card>

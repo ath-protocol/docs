@@ -1,0 +1,225 @@
+---
+title: "Full Server Example"
+description: "A complete, runnable ATH gateway server using @ath-protocol/server and Hono."
+---
+
+## Complete Gateway Server
+
+This example brings together all the endpoints into a working gateway server. It uses `@ath-protocol/server` for protocol logic and `Hono` as the HTTP framework.
+
+### Project Setup
+
+```bash
+mkdir ath-gateway && cd ath-gateway
+npm init -y
+npm install hono @hono/node-server @ath-protocol/server @ath-protocol/types jose
+npm install -D typescript @types/node
+```
+
+### `server.ts`
+
+```typescript
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { serve } from "@hono/node-server";
+import {
+  createATHHandlers,
+  createProxyHandler,
+  createServiceDiscoveryDocument,
+  InMemoryAgentRegistry,
+  InMemorySessionStore,
+  InMemoryTokenStore,
+  InMemoryProviderTokenStore,
+  InMemoryJtiCache,
+} from "@ath-protocol/server";
+
+// --- Configuration ---
+const PORT = 3000;
+const GATEWAY_URL = `http://localhost:${PORT}`;
+
+const PROVIDER_CONFIG = {
+  github: {
+    displayName: "GitHub",
+    scopes: ["read:user", "repo", "gist"],
+    authorizeEndpoint: "https://github.com/login/oauth/authorize",
+    tokenEndpoint: "https://github.com/login/oauth/access_token",
+    apiBase: "https://api.github.com",
+    clientId: process.env.GITHUB_CLIENT_ID || "",
+    clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+  },
+};
+
+// --- Stores ---
+const registry = new InMemoryAgentRegistry();
+const sessionStore = new InMemorySessionStore();
+const tokenStore = new InMemoryTokenStore();
+const providerTokenStore = new InMemoryProviderTokenStore();
+const jtiCache = new InMemoryJtiCache();
+
+// --- Handlers ---
+const handlers = createATHHandlers({
+  registry,
+  sessionStore,
+  tokenStore,
+  providerTokenStore,
+  config: {
+    audience: GATEWAY_URL,
+    callbackUrl: `${GATEWAY_URL}/ath/callback`,
+    availableScopes: PROVIDER_CONFIG.github.scopes,
+    appId: "my-ath-gateway",
+    oauth: {
+      authorizeEndpoint: PROVIDER_CONFIG.github.authorizeEndpoint,
+      tokenEndpoint: PROVIDER_CONFIG.github.tokenEndpoint,
+      clientId: PROVIDER_CONFIG.github.clientId,
+      clientSecret: PROVIDER_CONFIG.github.clientSecret,
+    },
+  },
+});
+
+const proxyHandler = createProxyHandler({
+  tokenStore,
+  providerTokenStore,
+  upstreams: {
+    github: PROVIDER_CONFIG.github.apiBase,
+  },
+});
+
+// --- App ---
+const app = new Hono();
+app.use("*", cors());
+
+// Helper to convert Hono request to ATHHandlerRequest
+async function toHandlerReq(c: any, body?: any) {
+  return {
+    method: c.req.method,
+    url: c.req.url,
+    headers: Object.fromEntries(c.req.raw.headers),
+    body: body ?? (c.req.method !== "GET" ? await c.req.json() : undefined),
+  };
+}
+
+// --- Discovery ---
+app.get("/.well-known/ath.json", (c) => {
+  return c.json({
+    ath_version: "0.1",
+    gateway_id: GATEWAY_URL,
+    agent_registration_endpoint: `${GATEWAY_URL}/ath/agents/register`,
+    supported_providers: Object.entries(PROVIDER_CONFIG).map(([id, cfg]) => ({
+      provider_id: id,
+      display_name: cfg.displayName,
+      available_scopes: cfg.scopes,
+      auth_mode: "OAUTH2",
+      agent_approval_required: true,
+    })),
+  });
+});
+
+// --- Health ---
+app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
+
+// --- Registration ---
+app.post("/ath/agents/register", async (c) => {
+  const result = await handlers.register(await toHandlerReq(c));
+  return c.json(result.body, result.status as any);
+});
+
+// --- Authorization ---
+app.post("/ath/authorize", async (c) => {
+  const result = await handlers.authorize(await toHandlerReq(c));
+  return c.json(result.body, result.status as any);
+});
+
+// --- OAuth Callback ---
+app.get("/ath/callback", async (c) => {
+  const query = c.req.query();
+  const result = await handlers.callback(await toHandlerReq(c, query));
+  if (result.status === 302 && result.headers?.location) {
+    return c.redirect(result.headers.location);
+  }
+  return c.json(result.body, result.status as any);
+});
+
+// --- Token Exchange ---
+app.post("/ath/token", async (c) => {
+  const result = await handlers.token(await toHandlerReq(c));
+  return c.json(result.body, result.status as any);
+});
+
+// --- Revocation ---
+app.post("/ath/revoke", async (c) => {
+  const result = await handlers.revoke(await toHandlerReq(c));
+  return c.json(result.body, result.status as any);
+});
+
+// --- Proxy ---
+app.all("/ath/proxy/:providerId/*", async (c) => {
+  const providerId = c.req.param("providerId");
+  const path = "/" + (c.req.param("*") || "");
+  const token = c.req.header("Authorization")?.replace("Bearer ", "");
+  const agentId = c.req.header("X-ATH-Agent-ID");
+
+  const result = await proxyHandler({
+    token: token || "",
+    providerId,
+    method: c.req.method,
+    path,
+    headers: Object.fromEntries(c.req.raw.headers),
+    body: ["GET", "HEAD"].includes(c.req.method) ? undefined : await c.req.json(),
+    agentId,
+  });
+
+  return c.json(result.body, result.status as any);
+});
+
+// --- Start ---
+console.log(`🛡️  ATH Gateway running at ${GATEWAY_URL}`);
+serve({ fetch: app.fetch, port: PORT });
+```
+
+### Running
+
+```bash
+# Set your GitHub OAuth credentials
+export GITHUB_CLIENT_ID="your-github-oauth-app-client-id"
+export GITHUB_CLIENT_SECRET="your-github-oauth-app-client-secret"
+
+# Run the server
+npx tsx server.ts
+```
+
+### Testing with curl
+
+```bash
+# 1. Discovery
+curl http://localhost:3000/.well-known/ath.json | jq
+
+# 2. Register (with mock attestation for development)
+curl -X POST http://localhost:3000/ath/agents/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "https://my-agent.example.com/.well-known/agent.json",
+    "agent_attestation": "'$(node -e "
+      const jose = require('jose');
+      (async () => {
+        const { privateKey } = await jose.generateKeyPair('ES256');
+        const jwt = await new jose.SignJWT({capabilities:[]})
+          .setProtectedHeader({alg:'ES256',kid:'test'})
+          .setIssuer('https://my-agent.example.com')
+          .setSubject('https://my-agent.example.com/.well-known/agent.json')
+          .setAudience('http://localhost:3000')
+          .setIssuedAt()
+          .setExpirationTime('1h')
+          .setJti(crypto.randomUUID())
+          .sign(privateKey);
+        process.stdout.write(jwt);
+      })();
+    ")'",
+    "developer": {"name": "TestDev", "id": "test-dev"},
+    "requested_providers": [{"provider_id": "github", "scopes": ["read:user"]}],
+    "purpose": "Testing"
+  }'
+```
+
+<Card title="Next: Adding ATH to Existing OAuth" icon="arrow-right" href="/server/adding-ath-to-existing-oauth">
+  Integrate ATH with your existing OAuth infrastructure
+</Card>

@@ -1,0 +1,64 @@
+---
+title: "Security Checklist"
+description: "Security requirements and best practices for ATH implementations."
+---
+
+## Transport Security
+
+- [ ] **TLS 1.2+** on all ATH endpoints — no plaintext HTTP in production
+- [ ] Valid TLS certificates on gateway and agent identity URLs
+- [ ] HSTS headers recommended
+
+## Agent Attestation
+
+- [ ] **ES256 algorithm only** — reject other algorithms
+- [ ] Verify JWT signature against published public key at `agent_id` URL
+- [ ] Check `aud` matches the **specific endpoint URL** being called
+- [ ] Check `exp` is in the future
+- [ ] Check `iat` is within **5 minutes** of server time
+- [ ] Implement **JTI replay cache** — reject reused `jti` values until `exp`
+- [ ] Cache public keys for max **5 minutes**
+- [ ] Re-fetch public key at most **once per `agent_id` per minute** on signature failure
+
+## OAuth Security
+
+- [ ] **PKCE S256 mandatory** on all authorization URLs
+- [ ] Generate PKCE `code_verifier` with ≥256 bits entropy
+- [ ] Use `state` parameter with ≥128 bits entropy
+- [ ] Upstream token exchange uses `application/x-www-form-urlencoded` (RFC 6749 §4.1.3)
+- [ ] **Provider tokens never exposed to agents** — stored server-side only
+
+## Token Security
+
+- [ ] ATH tokens are **opaque** (not JWTs) — cannot be decoded by agents
+- [ ] Tokens bound to `(agent_id, user_id, provider_id, effective_scopes)`
+- [ ] Token lifetime configurable (default: 1 hour)
+- [ ] Revocation follows **RFC 7009** — always return 200 (don't leak token existence)
+- [ ] Revoked tokens rejected immediately (no grace period)
+
+## Session Security
+
+- [ ] Authorization sessions expire within **10 minutes**
+- [ ] Sessions are **single-use** — consumed on token exchange
+- [ ] Sessions bound to browser session (HTTP-only cookies recommended)
+
+## Scope Enforcement
+
+- [ ] **Triple intersection enforced**: `Effective = Agent-Approved ∩ User-Consented ∩ Requested`
+- [ ] Empty intersection → reject token request
+- [ ] Proxy validates token scopes against HTTP method/path
+
+## Proxy Security
+
+- [ ] Validate `X-ATH-Agent-ID` header matches token binding (if present)
+- [ ] Validate `provider_id` in URL matches token binding
+- [ ] Strip sensitive headers before forwarding to upstream
+- [ ] Do not forward ATH tokens to upstream APIs
+
+## Infrastructure
+
+- [ ] Rate limit all endpoints (registration, authorization, token, proxy)
+- [ ] Audit log all ATH operations
+- [ ] Secrets stored in secure vault (not environment variables in production)
+- [ ] Persistent `JWT_SECRET` (not random-at-boot)
+- [ ] Database-backed stores (not in-memory) for production
