@@ -28,7 +28,7 @@ The `provider-id` is what agents use in their requests (e.g., `athx proxy github
 ## GitHub
 
 1. Go to [GitHub → Settings → Developer settings → OAuth Apps → New](https://github.com/settings/developers)
-2. Set **Authorization callback URL** to `http://YOUR_GATEWAY/ath/callback`
+2. Set **Authorization callback URL** to `https://your-gateway.com/ath/callback`
 
 ```json
 {
@@ -52,7 +52,7 @@ The `provider-id` is what agents use in their requests (e.g., `athx proxy github
 
 1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
 2. Create **OAuth 2.0 Client ID** → Web application
-3. Add redirect URI: `http://YOUR_GATEWAY/ath/callback`
+3. Add redirect URI: `https://your-gateway.com/ath/callback`
 4. Enable the APIs you need (Calendar API, Gmail API, etc.)
 
 ```json
@@ -79,7 +79,7 @@ The `provider-id` is what agents use in their requests (e.g., `athx proxy github
 ## Slack
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App
-2. Under **OAuth & Permissions**, add redirect URL: `http://YOUR_GATEWAY/ath/callback`
+2. Under **OAuth & Permissions**, add redirect URL: `https://your-gateway.com/ath/callback`
 
 ```json
 {
@@ -140,7 +140,7 @@ Agents can then discover all providers and register for whichever they need. Eac
 You can also add providers via the admin API:
 
 ```bash
-curl -X POST http://localhost:4001/ath/admin/providers \
+curl -X POST https://your-gateway.com/ath/admin/providers \
   -H "X-ATH-User-Token: $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

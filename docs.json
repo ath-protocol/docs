@@ -41,6 +41,7 @@
             "group": "Getting Started",
             "pages": [
               "start-here/what-is-ath",
+              "start-here/jwt-and-oauth-basics",
               "start-here/run-the-demo",
               "start-here/what-just-happened"
             ]
